@@ -333,5 +333,3 @@ as those arising from fixed step solvers with too large step sizes. However,
 for the simulation of compartmental epidemiological models such as those
 covered by the comomodels package, we highly recommend the use of adaptive
 solvers such as LSODA for speed and accuracy.
-
-
