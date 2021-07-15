@@ -47,7 +47,6 @@ This notebook begins with a review of a simple differential equation solver on
 a toy problem with a known solution. Then, it demonstrates the importance of 
 accurate ODE solvers for comomodel's SEIRD model.
 
-
 ## Numerical solution of a differential equation using forward Euler
 
 One of the simplest numerical solvers for differential equations is the forward
@@ -231,7 +230,6 @@ These results indicate that for the SEIR model with these parameters, a daily
 step size is much too large to obtain accurate results. The daily step size
 causes the date of the peak of the epidemic (for both incident cases and
 deaths) to be overestimated by several days.
-
 
 ## Adaptive step size methods
 
