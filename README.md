@@ -4,7 +4,7 @@ Interactive notebooks accompanying the article _Learning transmission dynamics m
 
 ## Contents
 
-* [Notebook 1](https://github.com/Como-DTC-Collaboration/como-models-math-biosci/blob/main/notebook_1)
+* [Numerical solution of epidemiological differential equations](Numerical_solution_of_SEIRD.Rmd)
 
 ## Instructions
 
