@@ -231,6 +231,27 @@ step size is much too large to obtain accurate results. The daily step size
 causes the date of the peak of the epidemic (for both incident cases and
 deaths) to be overestimated by several days.
 
+## Differential equations versus difference equations
+
+The forward Euler recurrence relation defining the approximate solution to a
+_differential_ equation,
+
+$$f_{i+1} = f_i + \Delta t g(t_i, f_i),$$
+
+is identical with a typical definition of a _difference_ equation of the sort 
+used in multiple fields of computational biology, including epidemiology.
+
+Thus, what we have up till now treated as numerical error arising from the
+forward Euler method may alternatively be viewed as the discrepancy between an
+(accurately solved) differential equation model and a corresponding difference
+equation model. The results above show, for the parameter values considered,
+that this discrepancy is not negligible. While difference equations can be
+valid and tenable models for certain phenomena, we see that a daily SEIR 
+difference equation cannot be considered equivalent to the original SEIR
+differential equation model, that is, the same parameter values can cause 
+substantially different outputs from each model.
+
+
 ## Adaptive step size methods
 
 The chief advantage of numerical solvers such as forward Euler described above,
