@@ -259,9 +259,9 @@ which take a fixed grid of time points on which to calculate the approximate
 solution, is their ease of implementation. However, as seen above, these
 methods suffer because:
 
-1. To obtain an accurate solution, the solver step size must be set to some low
-value, but it is often unknown how low this value must be.
-2. When the solver step size is set to a low value, the method may be
+1. To obtain an accurate solution, the solver step size must be set to some
+small value, but it is often unknown how small this value must be.
+2. When the solver step size is set to a small value, the method may be
 unpleasantly slow.
 
 Both of these defects are addressed by adaptive step size methods. In these,
