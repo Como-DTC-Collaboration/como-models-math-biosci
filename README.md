@@ -4,7 +4,7 @@ Interactive notebooks accompanying the article _Learning transmission dynamics m
 
 ## Contents
 
-* [Numerical solution of epidemiological differential equations](Numerical_solution_of_SEIRD.Rmd)
+1. [Numerical solution of epidemiological differential equations](Numerical_solution_of_SEIRD.Rmd)
 
 ## Instructions
 
