@@ -27,21 +27,22 @@ library(glue)
 
 ## Introduction
 
-Compartmental epidemiological models (such as SEIR and its variants) are 
+Compartmental epidemiological models (such as SEIRD and its variants) are 
 _differential equation_ models—that is, given particular values of the 
-model parameters, they do not directly specify the output of the model over
-time, but rather they specify a system of differential equations whose solution
-is the model output over time. Like many differential equation models of
-interest in scientific applications, SEIR differential equations do not admit
-analytical solutions. Instead, an approximation of the solution must be
-obtained using numerical methods.
+model parameters, the models do not directly specify a functional form over 
+time, but rather they specify the instantaneous rate of change of the system,
+forming a system of differential equations whose solution is the model output
+over time. Like many differential equation models of interest in scientific
+applications, SEIRD differential equations do not admit analytical solutions.
+Instead, an approximation of the solution must be obtained using numerical
+methods.
 
 Epidemiological differential equations can be solved easily using simple fixed
 time step solver such as the Euler method. In this notebook, we show that when
 such methods are employed without sufficient care in the selection of the time
-step, unacceptably high error in the numerical solution may occur. We recommend
-more sophisticated adaptive step size solvers when solving SEIR-type models, as
-implemented in the comomodels package.
+step, high error in the numerical solution may occur. We recommend more
+sophisticated adaptive step size solvers when solving SEIRD-type models, as 
+implemented in the [comomodels](https://github.com/Como-DTC-Collaboration/como-models) package.
 
 This notebook begins with a review of a simple differential equation solver on 
 a toy problem with a known solution. Then, it demonstrates the importance of 
@@ -60,7 +61,7 @@ $\{f_i\}_{i=0}^N$ on a set of time points
 $\{t_i = t_0 + i \Delta t\}_{i=0}^N$ which is given by:
 
 $$f_0 = f(t=t_0);$$
-$$f_{i+1} = f_i + \Delta t g(t_i, f_i),\:\:\:\: i=1, \dots, N-1.$$
+$$f_{i+1} = f_i + g(t_i, f_i) \Delta t,\:\:\:\: i=1, \dots, N-1.$$
 
 ### Importance of the solver step size
 
@@ -160,7 +161,7 @@ solution that is too low. For the smaller time step $\Delta t=0.1$, the
 approximate solution is more accurate, although a negative deviation is still
 apparent.
 
-## Effect of solver step size on the SEIR model
+## Effect of solver step size on the SEIRD model
 
 First, we load the SEIRD model from comomodels, and specify plausible parameter
 values and initial conditions.
@@ -196,15 +197,15 @@ for (t in times_daily) {
   incidence <- subset(cases, cases[,3]=="Incidence")
   death <- subset(cases, cases[,3]=="Deaths")
   changes_dense <- rbind(changes_dense, 
-                         list(time=t, 
-                              value=sum(incidence$value), 
-                              compartment="Incidence", 
-                              age_range="0-150"))
+                         data.frame(time=t, 
+                                    value=sum(incidence$value), 
+                                    compartment="Incidence", 
+                                    age_range="0-150"))
   changes_dense <- rbind(changes_dense, 
-                         list(time=t, 
-                              value=sum(death$value), 
-                              compartment="Deaths", 
-                              age_range="0-150"))
+                         data.frame(time=t, 
+                                    value=sum(death$value), 
+                                    compartment="Deaths", 
+                                    age_range="0-150"))
 }
 
 # Reorder the deaths and incidences
@@ -226,7 +227,7 @@ ggplot(subset(all_changes, all_changes[,3]=="Deaths"),
   geom_bar(stat="identity", position = position_dodge()) +
   labs(title="Deaths")
 ```
-These results indicate that for the SEIR model with these parameters, a daily
+These results indicate that for the SEIRD model with these parameters, a daily
 step size is much too large to obtain accurate results. The daily step size
 causes the date of the peak of the epidemic (for both incident cases and
 deaths) to be overestimated by several days.
@@ -246,8 +247,8 @@ forward Euler method may alternatively be viewed as the discrepancy between an
 (accurately solved) differential equation model and a corresponding difference
 equation model. The results above show, for the parameter values considered,
 that this discrepancy is not negligible. While difference equations can be
-valid and tenable models for certain phenomena, we see that a daily SEIR 
-difference equation cannot be considered equivalent to the original SEIR
+valid and tenable models for certain phenomena, we see that a daily SEIRD
+difference equation cannot be considered equivalent to the original SEIRD
 differential equation model, that is, the same parameter values can cause 
 substantially different outputs from each model.
 
@@ -311,15 +312,15 @@ for (t in times_daily) {
   incidence = subset(cases, cases[,3]=="Incidence")
   death = subset(cases, cases[,3]=="Deaths")
   changes_dense = rbind(changes_dense, 
-                        list(time=t,
-                             value=sum(incidence$value),
-                             compartment="Incidence",
-                             age_range="0-150"))
+                        data.frame(time=t,
+                                   value=sum(incidence$value),
+                                   compartment="Incidence",
+                                   age_range="0-150"))
   changes_dense = rbind(changes_dense,
-                        list(time=t,
-                             value=sum(death$value),
-                             compartment="Deaths",
-                             age_range="0-150"))
+                        data.frame(time=t,
+                                   value=sum(death$value),
+                                   compartment="Deaths",
+                                   age_range="0-150"))
 }
 
 # Save the labels and combine for plotting
@@ -353,4 +354,5 @@ inference task at hand, they may be responsible for errors just as pernicious
 as those arising from fixed step solvers with too large step sizes. However,
 for the simulation of compartmental epidemiological models such as those
 covered by the comomodels package, we highly recommend the use of adaptive
-solvers such as LSODA for speed and accuracy.
+solvers such as LSODA (the default choice of solver in comomodels) for
+speed and accuracy.
