@@ -101,6 +101,18 @@ of the outputs of the age-structured SEIRD model to the values of the contact
 matrix. Using bootstrap samples which represent the uncertainty in the contact
 matrix, we show significant uncertainty in the numbers of infected individuals.
 
+## Accuracy of uncertainty estimates produced by the bootstrapping methods
+
+The bootstrap algorithm is an easy way to obtain some idea of the uncertainty in
+the contact matrix. However, due to the simplicity of the procedure, its
+results should be treated as mere approximations of the true uncertainty that
+may exist in the contact matrix. In particular, the bootstrap algorithm does 
+not account for the possibility that the contact data in the original survey is
+unrepresentative of the actual population. For example, if contact data is 
+collected primarily from an urban area in a country whose population is mostly
+rural, the resulting contact matrices may be inaccurate for the country, and 
+the bootstrap cannot account for the lack of information in the original data.
+
 ## Bootstrap samples of contact matrices
 
 We obtain samples of the contact matrix using the socialmixr library which
@@ -234,9 +246,7 @@ quants_df <- data.frame(quants)
 quants_df["time"] <- seq(0, 100, by=1)
 
 ggplot(quants_df, aes(x = time)) +
-  geom_line(aes(y=X5.)) +
   geom_line(aes(y=X50.)) +
-  geom_line(aes(y=X95.)) +
   geom_ribbon(aes(ymin=X5., ymax=X95.), fill="blue", alpha=0.5) +
   ylab("I compartment, age 15-20")
 
@@ -248,9 +258,7 @@ quants_df <- data.frame(quants)
 quants_df["time"] <- seq(0, 100, by=1)
 
 ggplot(quants_df, aes(x = time)) +
-  geom_line(aes(y=X5.)) +
   geom_line(aes(y=X50.)) +
-  geom_line(aes(y=X95.)) +
   geom_ribbon(aes(ymin=X5., ymax=X95.), fill="blue", alpha=0.5) +
   ylab("I compartment, age 75-80")
 
