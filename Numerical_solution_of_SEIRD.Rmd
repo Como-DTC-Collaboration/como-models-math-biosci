@@ -1,6 +1,7 @@
 ---
 title: "Numerical solution of SEIRD"
 output: rmarkdown::html_vignette
+bibliography: references.bib
 vignette: >
   %\VignetteIndexEntry{Numerical solution of SEIRD}
   %\VignetteEncoding{UTF-8}
@@ -275,6 +276,11 @@ regions of time where this is necessary, and otherwise increasing the step size
 to larger values. For this reason, they are much more efficient than fixed step
 solvers.
 
+A wide variety of approaches to step size adaptation have been proposed. At 
+each step, these methods typically use some heuristic to estimate the error
+introduced at that time step, and then select roughly the largest possible step
+such that the threshold imposed by the user-supplied tolerance is not exceeded.
+
 Although adaptive step size solvers are challenging to implement, it is often
 possible to rely on existing implementations. In R, a wide selection of 
 adaptive step size solvers are provided by the deSolve package. The comomodels
@@ -282,11 +288,14 @@ library uses deSolve to handle numerical solution of the systems of ODEs that
 arise in compartmental epidemiology models, giving users easy access to
 efficient adaptive step size solvers. In comomodels, default values
 of the local error tolerances are used, so these need not be specified
-manually.
+manually. The default solver used in comomodels is LSODA [@hindmarsh2005lsoda].
+This method automatically switches between the Adams and backward
+differentiation formula (BDF) solvers [@gautschi2012numerical] based on the
+properties of the differential equation being solved.
 
 In the following example, we compare the performance of the forward Euler 
 solver with a fixed, small step size to that of the LSODA adaptive step size
-solver (comomodel's default choice for the solver algorithm).
+solver.
 
 
 ```{r, fig.width=7, fig.height=5}
@@ -356,3 +365,5 @@ for the simulation of compartmental epidemiological models such as those
 covered by the comomodels package, we highly recommend the use of adaptive
 solvers such as LSODA (the default choice of solver in comomodels) for
 speed and accuracy.
+
+## References
