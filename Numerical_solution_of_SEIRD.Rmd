@@ -1,6 +1,7 @@
 ---
 title: "Numerical solution of SEIRD"
 output: rmarkdown::html_vignette
+bibliography: references.bib
 vignette: >
   %\VignetteIndexEntry{Numerical solution of SEIRD}
   %\VignetteEncoding{UTF-8}
@@ -287,10 +288,10 @@ library uses deSolve to handle numerical solution of the systems of ODEs that
 arise in compartmental epidemiology models, giving users easy access to
 efficient adaptive step size solvers. In comomodels, default values
 of the local error tolerances are used, so these need not be specified
-manually. The default solver used in comomodels is LSODA. This method 
-automatically switches between the Adams and backward differentiation formula
-(BDF) solvers based on the properties of the differential equation being 
-solved.
+manually. The default solver used in comomodels is LSODA [@hindmarsh2005lsoda].
+This method automatically switches between the Adams and backward
+differentiation formula (BDF) solvers [@gautschi2012numerical] based on the
+properties of the differential equation being solved.
 
 In the following example, we compare the performance of the forward Euler 
 solver with a fixed, small step size to that of the LSODA adaptive step size
@@ -364,3 +365,5 @@ for the simulation of compartmental epidemiological models such as those
 covered by the comomodels package, we highly recommend the use of adaptive
 solvers such as LSODA (the default choice of solver in comomodels) for
 speed and accuracy.
+
+## References
