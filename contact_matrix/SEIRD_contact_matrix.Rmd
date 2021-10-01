@@ -1,6 +1,6 @@
 ---
 title: "SEIRD_contact_matrix"
-output: rmarkdown::html_vignette
+output: rmarkdown::github_document
 vignette: >
   %\VignetteIndexEntry{SEIRD_contact_matrix}
   %\VignetteEncoding{UTF-8}

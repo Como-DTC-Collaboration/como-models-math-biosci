@@ -1,7 +1,7 @@
 ---
 title: "Numerical solution of SEIRD"
-output: rmarkdown::html_vignette
-bibliography: references.bib
+output: rmarkdown::github_document
+bibliography: ../references.bib
 vignette: >
   %\VignetteIndexEntry{Numerical solution of SEIRD}
   %\VignetteEncoding{UTF-8}
