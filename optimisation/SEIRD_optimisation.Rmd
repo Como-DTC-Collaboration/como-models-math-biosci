@@ -2,8 +2,8 @@
 title: "Optimisation with the SEIRD model"
 author: "Hui Jia Farm and Chon Lok Lei"
 date: "`r Sys.Date()`"
-output: rmarkdown::github_document
-bibliography: ../references.bib
+output: pdf_document
+# bibliography: ../references.bib
 vignette: >
   %\VignetteIndexEntry{Vignette Title}
   %\VignetteEngine{knitr::rmarkdown}
@@ -51,7 +51,7 @@ The time period of data we used is set to be the period before any interventions
 Each interventions can be thought as a change of the SEIRD model parameters.
 Since we are fitting only one set of parameters, constant throughout the whole period, we use the London COVID-19 data only up to the implementation of lockdown.
 The population size for London is assumed to be $9 \times 10^6$;
-it is the estimated population of London in 2020 extracted from Ref. [@london_data].
+it is the estimated population of London in 2020 extracted from Ref. [london_data].
 
 ```{r london-data}
 # Load London COVID-19 data
@@ -130,7 +130,7 @@ RealData_LogLikelihoodFn <- function(parameters, model=SEIRD(),
 The optimisation of the SEIRD model is repeated 100 times, with different initial values for all transmission parameters. Due to the heuristic approach of Nelder-Mead method, each run of optimisation will return different sets of optimised parameters.
 
 ```{r, eval=!cached_bool, warning=FALSE, message=FALSE, results='hide'}
-repeat_num <- 100
+repeat_num <- 5
 for (repeats in 1:repeat_num){
     trans_params_guess <- runif(4, min = 0, max = 1)
     init_conds_guess<- c(1-3e-7, 1e-7, 1e-7, 1e-7)
@@ -208,9 +208,9 @@ for (i in 1:repeat_num){
 										color="Optimised Incidence")) +
   geom_line(data=data_set, aes(x = time, y = Deaths, color="Optimised Deaths"))
 }
-b <- b + geom_line(data=London, aes(x = time, y = DailyCases, color="Actual Incidence"))
-+ geom_line(data=London, aes(x = time, y = DailyDeaths, color="Actual Deaths"))
-+ scale_color_manual(name = "Legend", values = c("Optimised Incidence" = "#FF6699",
+b <- b + geom_line(data=London, aes(x = time, y = DailyCases, color="Actual Incidence")) +
+		geom_line(data=London, aes(x = time, y = DailyDeaths, color="Actual Deaths")) +
+		scale_color_manual(name = "Legend", values = c("Optimised Incidence" = "#FF6699",
 												 "Optimised Deaths" = "#66CCFF",
 												 "Actual Incidence" = "darkred",
 												 "Actual Deaths" = "blue")) +
@@ -258,7 +258,7 @@ After sorting the obtained paramters according to the error value, we choose the
 
 ```{r, fig.height = 5, fig.width = 7}
 
-chosen_repeats <- 20
+chosen_repeats <- 2
 opt_init_df <- opt_init_df[order(-opt_init_df$obj_fn),]
 top_opt_init_df <- opt_init_df[1:chosen_repeats,]
 top_optimised_para <- subset(top_opt_init_df, select=-c(beta_init, kappa_init,
@@ -297,9 +297,9 @@ for (i in 1:chosen_repeats){
 										color="Optimised Incidence")) +
   geom_line(data=data_set, aes(x = time, y = Deaths, color="Optimised Deaths"))
 }
-b <- b + geom_line(data=London, aes(x = time, y = DailyCases, color="Actual Incidence"))
-+ geom_line(data=London, aes(x = time, y = DailyDeaths, color="Actual Deaths"))
-+ scale_color_manual(name = "Legend", values = c("Optimised Incidence" = "#FF6699",
+b <- b + geom_line(data=London, aes(x = time, y = DailyCases, color="Actual Incidence")) +
+		geom_line(data=London, aes(x = time, y = DailyDeaths, color="Actual Deaths")) +
+		scale_color_manual(name = "Legend", values = c("Optimised Incidence" = "#FF6699",
 												 "Optimised Deaths" = "#66CCFF",
 												 "Actual Incidence" = "darkred",
 												 "Actual Deaths" = "blue")) +
@@ -384,14 +384,12 @@ The mean value of the synthetic data is simulated with values that provide suffi
 
 ```{r setup-model, eval=!cached_bool}
 model <- SEIRD()
-simulating_para <- c(9.1e-1, 8.7e-1, 5.3e-1, 9.7e-2,
-					 9.999e-1, 1e-7, 1e-7, 1e-6)
-transmission_parameters(model) <- list(beta=simulating_para[1],
-									   kappa=simulating_para[2],
-									   gamma=simulating_para[3],
-									   mu=simulating_para[4])
-initial_conditions(model) <- list(S0=simulating_para[5], E0=simulating_para[6],
-						  		  I0=simulating_para[7], R0=simulating_para[8])
+simulating_para <- list(beta=9.1e-1, kappa=8.7e-1, gamma=5.3e-1, mu=9.7e-2,
+					    S0=9.999e-1, E0=1e-7, I0=1e-7, R0=1e-6)
+tranmission_para_name <- c("beta", "kappa", "gamma", "mu")
+initial_conditions_name <- c("S0", "E0", "I0", "R0")
+transmission_parameters(model) <- simulating_para[tranmission_para_name]
+initial_conditions(model) <- simulating_para[initial_conditions_name]
 
 times <- seq(0, 150, by = 1)
 out_df <- run(model, times)
@@ -399,8 +397,8 @@ out_df <- run(model, times)
 
 ```{r setup-parameters, eval=cached_bool}
 model <- SEIRD()
-simulating_para <- c(9.1e-1, 8.7e-1, 5.3e-1, 9.7e-2,
-					 9.999e-1, 1e-7, 1e-7, 1e-6)
+simulating_para <- list(beta=9.1e-1, kappa=8.7e-1, gamma=5.3e-1, mu=9.7e-2,
+					    S0=9.999e-1, E0=1e-7, I0=1e-7, R0=1e-6)
 ```
 
 #### Adding noise to the synthetic data
@@ -564,10 +562,14 @@ constraint_ci <- c(rep(0,2))
 
 profile_parameters <- c('beta', 'gamma')
 
-beta_range <- c(seq(simulating_para[1], 0.4, by = -0.02),
-				seq(simulating_para[1], 1.5, by = 0.02))
-gamma_range <- c(seq(simulating_para[3], 0.1, by = -0.02),
-				 seq(simulating_para[3], 1.1, by = 0.02))
+# beta_range <- c(seq(simulating_para[1], 0.4, by = -0.02),
+# 				seq(simulating_para[1], 1.5, by = 0.02))
+# gamma_range <- c(seq(simulating_para[3], 0.1, by = -0.02),
+# 				 seq(simulating_para[3], 1.1, by = 0.02))
+
+beta_range <- seq(simulating_para$beta, 0.4, by = -0.1)
+gamma_range <- seq(simulating_para$gamma, 0.1, by = -0.1)
+
 
 range_transmission <- data.frame(parameter=rep('beta', length(beta_range)),
 								 fixed_value=beta_range)
@@ -665,426 +667,432 @@ init_cond <- list(S0=9.999e-1,
                   R0=1e-6)   
 times <- seq(0, length(testing_data_short$Incidence), by = 1)
 
-count <- 0
-for (param_name in profile_parameters){
-  temp <- profile_likelihood %>% filter(parameter == param_name)
-  for (i in 1:nrow(temp)){
-    model <- SEIRD()
-    trans_param <- list(beta=temp[i,4], kappa=simulating_para[2],
-						gamma=temp[i,5], mu=simulating_para[4])
-    trans_param[names(trans_param) == param_name] <- temp[i,2]
-    transmission_parameters(model) <- trans_param
-    initial_conditions(model) <- init_cond 
-    
-    out_df <- run(model, times)
-    
-    # plot simulated data
-    fitted_cases <- out_df$changes
-    fitted_cases <- spread(fitted_cases, compartment, value)
-    fitted_cases$Incidence <- fitted_cases$Incidence * population_size
-    fitted_cases$Deaths <- fitted_cases$Deaths * population_size
-    fitted_cases <- fitted_cases[-1,]
-    fitted_cases$parameter <- rep(param_name, length(fitted_cases$Incidence))
-    fitted_cases$fixed_value <- rep(temp$fixed_value[i], length(fitted_cases$Incidence))
-    
-    if (count == 0){
-      total_cases <- fitted_cases
-    } else{
-      total_cases <- rbind(total_cases, fitted_cases)
-    }
-    count <- count + 1
-  }
-}
-total_cases <- transform(total_cases, fixed_value=as.numeric(fixed_value))
-case_beta <- ggplot(total_cases %>% filter(parameter == 'beta'),
-					aes(x = time, y = Incidence, color=fixed_value)) +
-  geom_line() +
-  scale_color_gradient(low = "grey70", high = "grey40") +
-  guides(colour = guide_colorbar(reverse=TRUE)) +
-  geom_line(data=testing_data_short, aes(x = time, y = IncNoise), color='red') +
-  geom_line(data=testing_data_short, aes(x = time, y = DeathNoise), color='blue') +
-  ggtitle('beta')
-case_gamma <- ggplot(total_cases %>% filter(parameter == 'gamma'),
-					 aes(x = time, y = Incidence, color=fixed_value)) +
-  geom_line() +
-  scale_color_gradient(low = "grey70", high = "grey40") +
-  guides(colour = guide_colorbar(reverse=TRUE)) +
-  geom_line(data=testing_data_short, aes(x = time, y = IncNoise), color='red') +
-  geom_line(data=testing_data_short, aes(x = time, y = DeathNoise), color='blue') +
-  ggtitle('gamma')
-grid.arrange(case_beta, case_gamma, nrow = 1, ncol = 2)
-```
-The figure above shows the model simulations using the parameters identified in the profile likelihood.
+profilelikelihood_fit <- function(profile_likelihood, profile_parameters, synthetic_data){
 
+	count <- 0
+	trans_param <- list(beta=simulating_para$beta, kappa=simulating_para$kappa,
+						gamma=simulating_para$gamma, mu=simulating_para$mu)
 
-### Profile likelihood of all transmission parameters
-
-The same procedure is repeated with all the transmission parameters (instead of two out of the four): $\beta$, $\kappa$, $\gamma$ and $\mu$.
-
-#### Setting ranges for profile likelihood
-
-```{r profile-range2}
-constraint_ui <- rbind(diag(4))
-constraint_ci <- c(rep(0,4))
-
-profile_parameters <- c('beta', 'kappa', 'gamma', 'mu')
-
-beta_range <- c(seq(simulating_para[1], 0.4, by = -0.02),
-				seq(simulating_para[1], 1.5, by = 0.02))
-kappa_range <- c(seq(simulating_para[2], 0.6, by = -0.02),
-				 seq(simulating_para[2], 1.2, by = 0.02))
-gamma_range <- c(seq(simulating_para[3], 0.2, by = -0.02),
-				 seq(simulating_para[3], 0.8, by = 0.02))
-mu_range <- c(seq(simulating_para[4], 0.02, by = -0.005),
-			  seq(simulating_para[4], 0.2, by = 0.005))
-
-range_transmission <- data.frame(parameter=rep('beta', length(beta_range)),
-								 fixed_value=beta_range)
-range_transmission <- rbind(range_transmission, data.frame(
-  parameter=rep('kappa', length(kappa_range)), fixed_value=kappa_range))
-range_transmission <- rbind(range_transmission, data.frame(
-  parameter=rep('gamma', length(gamma_range)), fixed_value=gamma_range))
-range_transmission <- rbind(range_transmission, data.frame(
-  parameter=rep('mu', length(mu_range)), fixed_value=mu_range))
-```
-
-#### Optimisation
-
-```{r profile-opt2, eval=!cached_bool, error=TRUE, message=FALSE, warning=FALSE}
-previous_param <- rep(0, 4)
-profile_likelihood <- data.frame(parameter=character(), fixed_value=double(),
-                                 likelihood_value=double(), optim_beta=double(),
-                                 optim_kappa=double(), optim_gamma=double(),
-                                 optim_mu=double()) 
-profile_likelihood$parameter <- as.character(profile_likelihood$parameter)
-
-set.seed(0)
-for (param_name in profile_parameters){
-  err_value <- 0
-  fixed_values <- range_transmission %>% filter(parameter == param_name)
-  fixed_values <- fixed_values$fixed_value
-  for (i in 1:length(fixed_values)){
-    if (param_name == 'beta' & fixed_values[i] == simulating_para[1]){
-      init_guess <- simulating_para[1:4]
-    } else if (param_name == 'kappa' & fixed_values[i] == simulating_para[2]){
-      init_guess <- simulating_para[1:4]
-	} else if (param_name == 'gamma' & fixed_values[i] == simulating_para[3]){
-      init_guess <- simulating_para[1:4] 
-    } else if (param_name == 'mu' & fixed_values[i] == simulating_para[4]){
-      init_guess <- simulating_para[1:4]
-	} else {
-	  init_guess <- previous_param}
-
-	result <- constrOptim(init_guess, LogLikelihoodFn4,
-                          'NULL', constraint_ui, constraint_ci,
-                          method = "Nelder-Mead",
-						  control=list(fnscale=-1, reltol=1e-6),
-                          model=model,
-                          inc_numbers = testing_data_short$IncNoise,
-                          death_numbers = testing_data_short$DeathNoise,
-                          fixed_parameter = param_name, 
-                          fixed_parameter_value = fixed_values[i])
-    err_value <- append(err_value, result$value)
-    previous_param <- result$par
-    profile_likelihood[
-      nrow(profile_likelihood) + 1,] <- c(
-        param_name, fixed_values[i],
-        result$value, result$par)
-  }
+	for (param_name in profile_parameters){
+	  temp <- profile_likelihood %>% filter(parameter == param_name)
+	  for (i in 1:nrow(temp)){
+	    model <- SEIRD()
+	  	for (param_interest in profile_parameters){
+			trans_param[names(trans_param) == param_interest] <-
+				temp[i, paste('optim_', param_interest, sep = "")]
+		}
+	    trans_param[names(trans_param) == param_name] <- temp[i,2]
+	    transmission_parameters(model) <- trans_param
+	    initial_conditions(model) <- init_cond 
+	    
+	    out_df <- run(model, times)
+	    
+	    # plot simulated data
+	    fitted_cases <- out_df$changes
+	    fitted_cases <- spread(fitted_cases, compartment, value)
+	    fitted_cases$Incidence <- fitted_cases$Incidence * population_size
+	    fitted_cases$Deaths <- fitted_cases$Deaths * population_size
+	    fitted_cases <- fitted_cases[-1,]
+	    fitted_cases$parameter <- rep(param_name, length(fitted_cases$Incidence))
+	    fitted_cases$fixed_value <- rep(temp$fixed_value[i], length(fitted_cases$Incidence))
+	    
+	    if (count == 0){
+	      total_cases <- fitted_cases
+	    } else{
+	      total_cases <- rbind(total_cases, fitted_cases)
+	    }
+	    count <- count + 1
+	  }
+	}
+	total_cases <- transform(total_cases, fixed_value=as.numeric(fixed_value))
+	optimised_cases <- vector('list', length(profile_parameters))
+	for (i in 0:length(profile_parameters)){
+		optimised_cases[[i]] <- ggplot(total_cases %>% filter(parameter == profile_parameters[i]),
+						aes(x = time, y = Incidence, color=fixed_value)) +
+	  	geom_line() +
+	  	scale_color_gradient(low = "grey70", high = "grey40") +
+	  	guides(colour = guide_colorbar(reverse=TRUE)) +
+	  	geom_line(data=synthetic_data, aes(x = time, y = IncNoise), color='red') +
+	  	geom_line(data=synthetic_data, aes(x = time, y = DeathNoise), color='blue') +
+	  	ggtitle(profile_parameters[i])
+	grid.arrange(optimised_cases, nrow = length(profile_parameters)%/%2, ncol = 2)
+	}
 }
 
-```
-```{r transform-data2, eval=!cached_bool, error=TRUE}
-profile_likelihood <- transform(profile_likelihood, fixed_value=as.numeric(fixed_value))
-profile_likelihood <- transform(profile_likelihood,
-								likelihood_value=as.numeric(likelihood_value))
-profile_likelihood <- transform(profile_likelihood, optim_beta=as.numeric(optim_beta))
-profile_likelihood <- transform(profile_likelihood, optim_kappa=as.numeric(optim_kappa))
-profile_likelihood <- transform(profile_likelihood, optim_gamma=as.numeric(optim_gamma))
-profile_likelihood <- transform(profile_likelihood, optim_mu=as.numeric(optim_mu))
-
-# save results
-write.csv(profile_likelihood, "data/synthetic_halftrend_4param_profilelikelihood.csv",
-		  row.names = FALSE)
+profilelikelihood_fit(profile_likelihood, profile_parameters, testing_data_short)
 ```
 
-```{r, eval=cached_bool}
-profile_likelihood <- read.csv("data/synthetic_halftrend_4param_profilelikelihood.csv")
-```
-
-#### Visualisation
-
-```{r plot-profile2, fig.height = 5, fig.width = 7, error=TRUE}
-ymin <- floor(min(profile_likelihood$likelihood_value))
-ymax <- ceiling(max(profile_likelihood$likelihood_value))
-profile_beta <- ggplot(profile_likelihood %>% filter(parameter == 'beta'),
-					   aes(x = fixed_value, y = likelihood_value)) +
-  geom_vline(xintercept = simulating_para[1]) + geom_point() +
-  ylim(ymin, ymax) + ggtitle("beta")
-profile_kappa <- ggplot(profile_likelihood %>% filter(parameter == 'kappa'),
-						aes(x = fixed_value, y = likelihood_value)) +
-  geom_vline(xintercept = simulating_para[2]) + geom_point() +
-  ylim(ymin, ymax) + ggtitle("kappa")
-profile_gamma <- ggplot(profile_likelihood %>% filter(parameter == 'gamma'),
-						aes(x = fixed_value, y = likelihood_value)) +
-  geom_vline(xintercept = simulating_para[3]) + geom_point() +
-  ylim(ymin, ymax) + ggtitle("gamma")
-profile_mu <- ggplot(profile_likelihood %>% filter(parameter == 'mu'),
-					 aes(x = fixed_value, y = likelihood_value)) +
-  geom_vline(xintercept = simulating_para[4]) + geom_point() +
-  ylim(ymin, ymax) + ggtitle("mu")
-grid.arrange(profile_beta, profile_kappa, profile_gamma, profile_mu, nrow = 2, ncol = 2)
-```
-
-The profile likelihood results show that $\beta$, $\kappa$ and $\gamma$ are not identifiable, i.e. they have similar log-likelihood values for different fixed values.
-For example, fixing $\beta = 1.2$ would give a fit of a similar log-likelihood value as fixing $\beta = 0.9$.
-Therefore, it could not be (uniquely) identified which $\beta$ value gives the best fit (i.e. the maximum likelihood).
-In this case, only $\mu$ is considered to be identifiable.
-$\mu$ is the death rate, which can be thought as changing other parameters cannot compensate $\mu$, as $\mu$ uniquely describes the number of deaths (which is a part of the data).
-
-```{r plot-profile2-fit, fig.height = 5, fig.width = 7, error=TRUE}
-count <- 0
-for (param_name in profile_parameters){
-  temp <- profile_likelihood %>% filter(parameter == param_name)
-  for (i in 1:nrow(temp)){
-    model <- SEIRD()
-  	trans_param <- list(beta=temp[i,4], kappa=temp[i,5], gamma=temp[i,6], mu=temp[i,7])
-    trans_param[names(trans_param) == param_name] <- temp[i,2]
-    transmission_parameters(model) <- trans_param
-    initial_conditions(model) <- init_cond 
-    
-    out_df <- run(model, times)
-    
-    # plot simulated data
-    fitted_cases <- out_df$changes
-    fitted_cases <- spread(fitted_cases, compartment, value)
-    fitted_cases$Incidence <- fitted_cases$Incidence * population_size
-    fitted_cases$Deaths <- fitted_cases$Deaths * population_size
-    fitted_cases <- fitted_cases[-1,]
-    fitted_cases$parameter <- rep(param_name, length(fitted_cases$Incidence))
-    fitted_cases$fixed_value <- rep(temp$fixed_value[i], length(fitted_cases$Incidence))
-    
-    if (count == 0){
-      total_cases <- fitted_cases
-    } else{
-      total_cases <- rbind(total_cases, fitted_cases)
-    }
-    count <- count + 1
-  }
-}
-total_cases <- transform(total_cases, fixed_value=as.numeric(fixed_value))
-case_beta <- ggplot(total_cases %>% filter(parameter == 'beta'),
-					aes(x = time, y = Incidence, color=fixed_value)) +
-  geom_line() +
-  scale_color_gradient(low = "grey70", high = "grey40") +
-  guides(colour = guide_colorbar(reverse=TRUE)) +
-  geom_line(data=testing_data_short, aes(x = time, y = IncNoise), color='red') +
-  geom_line(data=testing_data_short, aes(x = time, y = DeathNoise), color='blue') +
-  ggtitle("beta")
-case_kappa <- ggplot(total_cases %>% filter(parameter == 'kappa'),
-					 aes(x = time, y = Incidence, color=fixed_value)) +
-  geom_line() +
-  scale_color_gradient(low = "grey70", high = "grey40") +
-  guides(colour = guide_colorbar(reverse=TRUE)) +
-  geom_line(data=testing_data_short, aes(x = time, y = IncNoise), color='red') +
-  geom_line(data=testing_data_short, aes(x = time, y = DeathNoise), color='blue') +
-  ggtitle("kappa")
-case_gamma <- ggplot(total_cases %>% filter(parameter == 'gamma'),
-					 aes(x = time, y = Incidence, color=fixed_value)) +
-  geom_line() +
-  scale_color_gradient(low = "grey70", high = "grey40") +
-  guides(colour = guide_colorbar(reverse=TRUE)) +
-  geom_line(data=testing_data_short, aes(x = time, y = IncNoise), color='red') +
-  geom_line(data=testing_data_short, aes(x = time, y = DeathNoise), color='blue') +
-  ggtitle("gamma")
-case_mu <- ggplot(total_cases %>% filter(parameter == 'mu'),
-				  aes(x = time, y = Incidence, color=fixed_value)) +
-  geom_line() +
-  scale_color_gradient(low = "grey70", high = "grey40") +
-  guides(colour = guide_colorbar(reverse=TRUE)) +
-  geom_line(data=testing_data_short, aes(x = time, y = IncNoise), color='red') +
-  geom_line(data=testing_data_short, aes(x = time, y = DeathNoise), color='blue') +
-  ggtitle("mu")
-grid.arrange(case_beta, case_kappa, case_gamma, case_mu, nrow = 2, ncol = 2)
-```
-
-Given the profile likelihood shows a similar likelihood value, it may be expected that all the model (forward) simulations perform equally well.
-
-
-### Profile likelihood with more information
-
-When more information is provided to the optimisation, the identifiability issue could be improved.
-Here, we show an example by constructing the profile likelihood using synthetic data with double the time points, which covers the first wave of the pandemic. 
-
-```{r profile-opt-4param, eval=!cached_bool, error=TRUE, message=FALSE, warning=FALSE}
-previous_param <- rep(0, 4)
-profile_likelihood <- data.frame(parameter=character(), fixed_value=double(),
-                                 likelihood_value=double(), optim_beta=double(),
-                                 optim_kappa=double(), optim_gamma=double(),
-                                 optim_mu=double()) 
-profile_likelihood$parameter <- as.character(profile_likelihood$parameter)
-
-set.seed(0)
-for (param_name in profile_parameters){
-  err_value <- 0
-  fixed_values <- range_transmission %>% filter(parameter == param_name)
-  fixed_values <- fixed_values$fixed_value
-  for (i in 1:length(fixed_values)){
-    if (param_name == 'beta' & fixed_values[i] == simulating_para[1]){
-      init_guess <- simulating_para[1:4]
-    } else if (param_name == 'kappa' & fixed_values[i] == simulating_para[2]){
-      init_guess <- simulating_para[1:4]
-	} else if (param_name == 'gamma' & fixed_values[i] == simulating_para[3]){
-      init_guess <- simulating_para[1:4] 
-    } else if (param_name == 'mu' & fixed_values[i] == simulating_para[4]){
-      init_guess <- simulating_para[1:4]
-	} else {
-	  init_guess <- previous_param}
-
-	result <- constrOptim(init_guess, LogLikelihoodFn4,
-                          'NULL', constraint_ui, constraint_ci,
-                          method = "Nelder-Mead",
-						  control=list(fnscale=-1, reltol=1e-4),
-                          model=model,
-                          inc_numbers = testing_data$IncNoise,
-                          death_numbers = testing_data$DeathNoise,
-                          fixed_parameter = param_name, 
-                          fixed_parameter_value = fixed_values[i])
-    err_value <- append(err_value, result$value)
-    previous_param <- result$par
-    profile_likelihood[
-      nrow(profile_likelihood) + 1,] <- c(
-        param_name, fixed_values[i],
-        result$value, result$par)
-  }
-}
-
-```
-```{r transform-data-4param, eval=!cached_bool, error=TRUE}
-profile_likelihood <- transform(profile_likelihood, fixed_value=as.numeric(fixed_value))
-profile_likelihood <- transform(profile_likelihood,
-								likelihood_value=as.numeric(likelihood_value))
-profile_likelihood <- transform(profile_likelihood, optim_beta=as.numeric(optim_beta))
-profile_likelihood <- transform(profile_likelihood, optim_kappa=as.numeric(optim_kappa))
-profile_likelihood <- transform(profile_likelihood, optim_gamma=as.numeric(optim_gamma))
-profile_likelihood <- transform(profile_likelihood, optim_mu=as.numeric(optim_mu))
-
-# save results
-write.csv(profile_likelihood, "data/synthetic_fulltrend_4param_profilelikelihood.csv",
-		  row.names = FALSE)
-```
-
-```{r, eval=cached_bool}
-profile_likelihood <- read.csv("data/synthetic_fulltrend_4param_profilelikelihood.csv")
-```
-
-#### Visualisation
-
-```{r plot-profile-4param, fig.height = 5, fig.width = 7, error=TRUE}
-ymin <- floor(min(profile_likelihood$likelihood_value))
-ymax <- ceiling(max(profile_likelihood$likelihood_value))
-profile_beta <- ggplot(profile_likelihood %>% filter(parameter == 'beta'),
-					   aes(x = fixed_value, y = likelihood_value)) +
-  geom_vline(xintercept = simulating_para[1]) + geom_point() +
-  ylim(ymin, ymax) + ggtitle("beta")
-profile_kappa <- ggplot(profile_likelihood %>% filter(parameter == 'kappa'),
-						aes(x = fixed_value, y = likelihood_value)) +
-  geom_vline(xintercept = simulating_para[2]) + geom_point() +
-  ylim(ymin, ymax) + ggtitle("kappa")
-profile_gamma <- ggplot(profile_likelihood %>% filter(parameter == 'gamma'),
-						aes(x = fixed_value, y = likelihood_value)) +
-  geom_vline(xintercept = simulating_para[3]) + geom_point() +
-  ylim(ymin, ymax) + ggtitle("gamma")
-profile_mu <- ggplot(profile_likelihood %>% filter(parameter == 'mu'),
-					 aes(x = fixed_value, y = likelihood_value)) +
-  geom_vline(xintercept = simulating_para[4]) + geom_point() +
-  ylim(ymin, ymax) + ggtitle("mu")
-grid.arrange(profile_beta, profile_kappa, profile_gamma, profile_mu, nrow = 2, ncol = 2)
-```
-
-With more data points, $\mu$ is still identifiable, observed by a curve with single peak in the profile likelihood.
-$\kappa$ is considered to be marginally identifiable, with gradual decrease from the peak of the curve.
-On the other hand, $\beta$ and $\gamma$ are thought to be identifiable up to a certain range; the log-likelihood value for $\beta$ decreases when $\beta$ is smaller than 0.6, while the log-likelihood value for $\gamma$ decreases when $\gamma$ is smaller than 0.38.
-
-```{r plot-profile-4param-fit, fig.height = 5, fig.width = 7, error=TRUE}
-ymin <- floor(min(profile_likelihood$likelihood_value))
-count <- 0
-for (param_name in profile_parameters){
-  temp <- profile_likelihood %>% filter(parameter == param_name)
-  for (i in 1:nrow(temp)){
-    model <- SEIRD()
-  	trans_param <- list(beta=temp[i,4], kappa=temp[i,5], gamma=temp[i,6], mu=temp[i,7])
-    trans_param[names(trans_param) == param_name] <- temp[i,2]
-    transmission_parameters(model) <- trans_param
-    initial_conditions(model) <- init_cond 
-   
-    times <- seq(0, length(testing_data$Incidence), by = 1)	
-    out_df <- run(model, times)
-    
-    # plot simulated data
-    fitted_cases <- out_df$changes
-    fitted_cases <- spread(fitted_cases, compartment, value)
-    fitted_cases$Incidence <- fitted_cases$Incidence * population_size
-    fitted_cases$Deaths <- fitted_cases$Deaths * population_size
-    fitted_cases <- fitted_cases[-1,]
-    fitted_cases$parameter <- rep(param_name, length(fitted_cases$Incidence))
-    fitted_cases$fixed_value <- rep(temp$fixed_value[i], length(fitted_cases$Incidence))
-    
-    if (count == 0){
-      total_cases <- fitted_cases
-    } else{
-      total_cases <- rbind(total_cases, fitted_cases)
-    }
-    count <- count + 1
-  }
-}
-total_cases <- transform(total_cases, fixed_value=as.numeric(fixed_value))
-case_beta <- ggplot(total_cases %>% filter(parameter == 'beta'),
-					aes(x = time, y = Incidence, color=fixed_value)) +
-  geom_line() +
-  scale_color_gradient(low = "grey70", high = "grey40") +
-  guides(colour = guide_colorbar(reverse=TRUE)) +
-  geom_line(data=testing_data, aes(x = time, y = IncNoise), color='red') +
-  geom_line(data=testing_data, aes(x = time, y = DeathNoise), color='blue') +
-  ggtitle("beta")
-case_kappa <- ggplot(total_cases %>% filter(parameter == 'kappa'),
-					 aes(x = time, y = Incidence, color=fixed_value)) +
-  geom_line() +
-  scale_color_gradient(low = "grey70", high = "grey40") +
-  guides(colour = guide_colorbar(reverse=TRUE)) +
-  geom_line(data=testing_data, aes(x = time, y = IncNoise), color='red') +
-  geom_line(data=testing_data, aes(x = time, y = DeathNoise), color='blue') +
-  ggtitle("kappa")
-case_gamma <- ggplot(total_cases %>% filter(parameter == 'gamma'),
-					 aes(x = time, y = Incidence, color=fixed_value)) +
-  geom_line() +
-  scale_color_gradient(low = "grey70", high = "grey40") +
-  guides(colour = guide_colorbar(reverse=TRUE)) +
-  geom_line(data=testing_data, aes(x = time, y = IncNoise), color='red') +
-  geom_line(data=testing_data, aes(x = time, y = DeathNoise), color='blue') +
-  ggtitle("gamma")
-case_mu <- ggplot(total_cases %>% filter(parameter == 'mu'),
-				  aes(x = time, y = Incidence, color=fixed_value)) +
-  geom_line() +
-  scale_color_gradient(low = "grey70", high = "grey40") +
-  guides(colour = guide_colorbar(reverse=TRUE)) +
-  geom_line(data=testing_data, aes(x = time, y = IncNoise), color='red') +
-  geom_line(data=testing_data, aes(x = time, y = DeathNoise), color='blue') +
-  ggtitle("mu")
-grid.arrange(case_beta, case_kappa, case_gamma, case_mu, nrow = 2, ncol = 2)
-```
-The figure above shows that some of the fits do not perform as well as the others, which may be expected from the profile likelihood.
-
-## Conclusion
-
-We showed that there are identifiability issues with the parameters in the SEIRD model by showing that multiple sets of parameters can fit the SEIRD model to the pre-intervention London COVID-19 data.
-These sets of parameters predicted different scenarios for the COVID-19 incidences and deaths, which is not helpful when planning interventions or preparation for estimated cases.
-We can further understand this identifiability problem by creating profile likelihood for the parameters.
-We started constructing the profile likelihood with only 2 transmission parameters, namely $\beta$ and $\gamma$, the infectious rate and the recovery rate. The profile likelihood showed that parameters in this simplified SEIRD model are identifiable.
-When more parameters are included in the profile likelihood, 3 out of the 4 parameters become unidentifiable.
-However, the identifiability of the parameters were improved when more data is provided.
-This concludes, at least for the SEIRD model, that large amount of parameters will give rise to identifiability problem, but extra information can improve the situation.
-Therefore, we have to practice caution when interpreting optimised parameters from models.
-
-## References
-# [1] Office for National Statistics. (2020) Census Ouput Area population estimates - London, England.
+# The figure above shows the model simulations using the parameters identified in the profile likelihood.
+# 
+# 
+# ### Profile likelihood of all transmission parameters
+# 
+# The same procedure is repeated with all the transmission parameters (instead of two out of the four): $\beta$, $\kappa$, $\gamma$ and $\mu$.
+# 
+# #### Setting ranges for profile likelihood
+# 
+# ```{r profile-range2}
+# constraint_ui <- rbind(diag(4))
+# constraint_ci <- c(rep(0,4))
+# 
+# profile_parameters <- c('beta', 'kappa', 'gamma', 'mu')
+# 
+# beta_range <- c(seq(simulating_para[1], 0.4, by = -0.02),
+# 				seq(simulating_para[1], 1.5, by = 0.02))
+# kappa_range <- c(seq(simulating_para[2], 0.6, by = -0.02),
+# 				 seq(simulating_para[2], 1.2, by = 0.02))
+# gamma_range <- c(seq(simulating_para[3], 0.2, by = -0.02),
+# 				 seq(simulating_para[3], 0.8, by = 0.02))
+# mu_range <- c(seq(simulating_para[4], 0.02, by = -0.005),
+# 			  seq(simulating_para[4], 0.2, by = 0.005))
+# 
+# range_transmission <- data.frame(parameter=rep('beta', length(beta_range)),
+# 								 fixed_value=beta_range)
+# range_transmission <- rbind(range_transmission, data.frame(
+#   parameter=rep('kappa', length(kappa_range)), fixed_value=kappa_range))
+# range_transmission <- rbind(range_transmission, data.frame(
+#   parameter=rep('gamma', length(gamma_range)), fixed_value=gamma_range))
+# range_transmission <- rbind(range_transmission, data.frame(
+#   parameter=rep('mu', length(mu_range)), fixed_value=mu_range))
+# ```
+# 
+# #### Optimisation
+# 
+# ```{r profile-opt2, eval=!cached_bool, error=TRUE, message=FALSE, warning=FALSE}
+# previous_param <- rep(0, 4)
+# profile_likelihood <- data.frame(parameter=character(), fixed_value=double(),
+#                                  likelihood_value=double(), optim_beta=double(),
+#                                  optim_kappa=double(), optim_gamma=double(),
+#                                  optim_mu=double()) 
+# profile_likelihood$parameter <- as.character(profile_likelihood$parameter)
+# 
+# set.seed(0)
+# for (param_name in profile_parameters){
+#   err_value <- 0
+#   fixed_values <- range_transmission %>% filter(parameter == param_name)
+#   fixed_values <- fixed_values$fixed_value
+#   for (i in 1:length(fixed_values)){
+#     if (param_name == 'beta' & fixed_values[i] == simulating_para[1]){
+#       init_guess <- simulating_para[1:4]
+#     } else if (param_name == 'kappa' & fixed_values[i] == simulating_para[2]){
+#       init_guess <- simulating_para[1:4]
+# 	} else if (param_name == 'gamma' & fixed_values[i] == simulating_para[3]){
+#       init_guess <- simulating_para[1:4] 
+#     } else if (param_name == 'mu' & fixed_values[i] == simulating_para[4]){
+#       init_guess <- simulating_para[1:4]
+# 	} else {
+# 	  init_guess <- previous_param}
+# 
+# 	result <- constrOptim(init_guess, LogLikelihoodFn4,
+#                           'NULL', constraint_ui, constraint_ci,
+#                           method = "Nelder-Mead",
+# 						  control=list(fnscale=-1, reltol=1e-6),
+#                           model=model,
+#                           inc_numbers = testing_data_short$IncNoise,
+#                           death_numbers = testing_data_short$DeathNoise,
+#                           fixed_parameter = param_name, 
+#                           fixed_parameter_value = fixed_values[i])
+#     err_value <- append(err_value, result$value)
+#     previous_param <- result$par
+#     profile_likelihood[
+#       nrow(profile_likelihood) + 1,] <- c(
+#         param_name, fixed_values[i],
+#         result$value, result$par)
+#   }
+# }
+# 
+# ```
+# ```{r transform-data2, eval=!cached_bool, error=TRUE}
+# profile_likelihood <- transform(profile_likelihood, fixed_value=as.numeric(fixed_value))
+# profile_likelihood <- transform(profile_likelihood,
+# 								likelihood_value=as.numeric(likelihood_value))
+# profile_likelihood <- transform(profile_likelihood, optim_beta=as.numeric(optim_beta))
+# profile_likelihood <- transform(profile_likelihood, optim_kappa=as.numeric(optim_kappa))
+# profile_likelihood <- transform(profile_likelihood, optim_gamma=as.numeric(optim_gamma))
+# profile_likelihood <- transform(profile_likelihood, optim_mu=as.numeric(optim_mu))
+# 
+# # save results
+# write.csv(profile_likelihood, "data/synthetic_halftrend_4param_profilelikelihood.csv",
+# 		  row.names = FALSE)
+# ```
+# 
+# ```{r, eval=cached_bool}
+# profile_likelihood <- read.csv("data/synthetic_halftrend_4param_profilelikelihood.csv")
+# ```
+# 
+# #### Visualisation
+# 
+# ```{r plot-profile2, fig.height = 5, fig.width = 7, error=TRUE}
+# ymin <- floor(min(profile_likelihood$likelihood_value))
+# ymax <- ceiling(max(profile_likelihood$likelihood_value))
+# profile_beta <- ggplot(profile_likelihood %>% filter(parameter == 'beta'),
+# 					   aes(x = fixed_value, y = likelihood_value)) +
+#   geom_vline(xintercept = simulating_para[1]) + geom_point() +
+#   ylim(ymin, ymax) + ggtitle("beta")
+# profile_kappa <- ggplot(profile_likelihood %>% filter(parameter == 'kappa'),
+# 						aes(x = fixed_value, y = likelihood_value)) +
+#   geom_vline(xintercept = simulating_para[2]) + geom_point() +
+#   ylim(ymin, ymax) + ggtitle("kappa")
+# profile_gamma <- ggplot(profile_likelihood %>% filter(parameter == 'gamma'),
+# 						aes(x = fixed_value, y = likelihood_value)) +
+#   geom_vline(xintercept = simulating_para[3]) + geom_point() +
+#   ylim(ymin, ymax) + ggtitle("gamma")
+# profile_mu <- ggplot(profile_likelihood %>% filter(parameter == 'mu'),
+# 					 aes(x = fixed_value, y = likelihood_value)) +
+#   geom_vline(xintercept = simulating_para[4]) + geom_point() +
+#   ylim(ymin, ymax) + ggtitle("mu")
+# grid.arrange(profile_beta, profile_kappa, profile_gamma, profile_mu, nrow = 2, ncol = 2)
+# ```
+# 
+# The profile likelihood results show that $\beta$, $\kappa$ and $\gamma$ are not identifiable, i.e. they have similar log-likelihood values for different fixed values.
+# For example, fixing $\beta = 1.2$ would give a fit of a similar log-likelihood value as fixing $\beta = 0.9$.
+# Therefore, it could not be (uniquely) identified which $\beta$ value gives the best fit (i.e. the maximum likelihood).
+# In this case, only $\mu$ is considered to be identifiable.
+# $\mu$ is the death rate, which can be thought as changing other parameters cannot compensate $\mu$, as $\mu$ uniquely describes the number of deaths (which is a part of the data).
+# 
+# ```{r plot-profile2-fit, fig.height = 5, fig.width = 7, error=TRUE}
+# count <- 0
+# for (param_name in profile_parameters){
+#   temp <- profile_likelihood %>% filter(parameter == param_name)
+#   for (i in 1:nrow(temp)){
+#     model <- SEIRD()
+#   	trans_param <- list(beta=temp[i,4], kappa=temp[i,5], gamma=temp[i,6], mu=temp[i,7])
+#     trans_param[names(trans_param) == param_name] <- temp[i,2]
+#     transmission_parameters(model) <- trans_param
+#     initial_conditions(model) <- init_cond 
+#     
+#     out_df <- run(model, times)
+#     
+#     # plot simulated data
+#     fitted_cases <- out_df$changes
+#     fitted_cases <- spread(fitted_cases, compartment, value)
+#     fitted_cases$Incidence <- fitted_cases$Incidence * population_size
+#     fitted_cases$Deaths <- fitted_cases$Deaths * population_size
+#     fitted_cases <- fitted_cases[-1,]
+#     fitted_cases$parameter <- rep(param_name, length(fitted_cases$Incidence))
+#     fitted_cases$fixed_value <- rep(temp$fixed_value[i], length(fitted_cases$Incidence))
+#     
+#     if (count == 0){
+#       total_cases <- fitted_cases
+#     } else{
+#       total_cases <- rbind(total_cases, fitted_cases)
+#     }
+#     count <- count + 1
+#   }
+# }
+# total_cases <- transform(total_cases, fixed_value=as.numeric(fixed_value))
+# case_beta <- ggplot(total_cases %>% filter(parameter == 'beta'),
+# 					aes(x = time, y = Incidence, color=fixed_value)) +
+#   geom_line() +
+#   scale_color_gradient(low = "grey70", high = "grey40") +
+#   guides(colour = guide_colorbar(reverse=TRUE)) +
+#   geom_line(data=testing_data_short, aes(x = time, y = IncNoise), color='red') +
+#   geom_line(data=testing_data_short, aes(x = time, y = DeathNoise), color='blue') +
+#   ggtitle("beta")
+# case_kappa <- ggplot(total_cases %>% filter(parameter == 'kappa'),
+# 					 aes(x = time, y = Incidence, color=fixed_value)) +
+#   geom_line() +
+#   scale_color_gradient(low = "grey70", high = "grey40") +
+#   guides(colour = guide_colorbar(reverse=TRUE)) +
+#   geom_line(data=testing_data_short, aes(x = time, y = IncNoise), color='red') +
+#   geom_line(data=testing_data_short, aes(x = time, y = DeathNoise), color='blue') +
+#   ggtitle("kappa")
+# case_gamma <- ggplot(total_cases %>% filter(parameter == 'gamma'),
+# 					 aes(x = time, y = Incidence, color=fixed_value)) +
+#   geom_line() +
+#   scale_color_gradient(low = "grey70", high = "grey40") +
+#   guides(colour = guide_colorbar(reverse=TRUE)) +
+#   geom_line(data=testing_data_short, aes(x = time, y = IncNoise), color='red') +
+#   geom_line(data=testing_data_short, aes(x = time, y = DeathNoise), color='blue') +
+#   ggtitle("gamma")
+# case_mu <- ggplot(total_cases %>% filter(parameter == 'mu'),
+# 				  aes(x = time, y = Incidence, color=fixed_value)) +
+#   geom_line() +
+#   scale_color_gradient(low = "grey70", high = "grey40") +
+#   guides(colour = guide_colorbar(reverse=TRUE)) +
+#   geom_line(data=testing_data_short, aes(x = time, y = IncNoise), color='red') +
+#   geom_line(data=testing_data_short, aes(x = time, y = DeathNoise), color='blue') +
+#   ggtitle("mu")
+# grid.arrange(case_beta, case_kappa, case_gamma, case_mu, nrow = 2, ncol = 2)
+# ```
+# 
+# Given the profile likelihood shows a similar likelihood value, it may be expected that all the model (forward) simulations perform equally well.
+# 
+# 
+# ### Profile likelihood with more information
+# 
+# When more information is provided to the optimisation, the identifiability issue could be improved.
+# Here, we show an example by constructing the profile likelihood using synthetic data with double the time points, which covers the first wave of the pandemic. 
+# 
+# ```{r profile-opt-4param, eval=!cached_bool, error=TRUE, message=FALSE, warning=FALSE}
+# previous_param <- rep(0, 4)
+# profile_likelihood <- data.frame(parameter=character(), fixed_value=double(),
+#                                  likelihood_value=double(), optim_beta=double(),
+#                                  optim_kappa=double(), optim_gamma=double(),
+#                                  optim_mu=double()) 
+# profile_likelihood$parameter <- as.character(profile_likelihood$parameter)
+# 
+# set.seed(0)
+# for (param_name in profile_parameters){
+#   err_value <- 0
+#   fixed_values <- range_transmission %>% filter(parameter == param_name)
+#   fixed_values <- fixed_values$fixed_value
+#   for (i in 1:length(fixed_values)){
+#     if (param_name == 'beta' & fixed_values[i] == simulating_para[1]){
+#       init_guess <- simulating_para[1:4]
+#     } else if (param_name == 'kappa' & fixed_values[i] == simulating_para[2]){
+#       init_guess <- simulating_para[1:4]
+# 	} else if (param_name == 'gamma' & fixed_values[i] == simulating_para[3]){
+#       init_guess <- simulating_para[1:4] 
+#     } else if (param_name == 'mu' & fixed_values[i] == simulating_para[4]){
+#       init_guess <- simulating_para[1:4]
+# 	} else {
+# 	  init_guess <- previous_param}
+# 
+# 	result <- constrOptim(init_guess, LogLikelihoodFn4,
+#                           'NULL', constraint_ui, constraint_ci,
+#                           method = "Nelder-Mead",
+# 						  control=list(fnscale=-1, reltol=1e-4),
+#                           model=model,
+#                           inc_numbers = testing_data$IncNoise,
+#                           death_numbers = testing_data$DeathNoise,
+#                           fixed_parameter = param_name, 
+#                           fixed_parameter_value = fixed_values[i])
+#     err_value <- append(err_value, result$value)
+#     previous_param <- result$par
+#     profile_likelihood[
+#       nrow(profile_likelihood) + 1,] <- c(
+#         param_name, fixed_values[i],
+#         result$value, result$par)
+#   }
+# }
+# 
+# ```
+# ```{r transform-data-4param, eval=!cached_bool, error=TRUE}
+# profile_likelihood <- transform(profile_likelihood, fixed_value=as.numeric(fixed_value))
+# profile_likelihood <- transform(profile_likelihood,
+# 								likelihood_value=as.numeric(likelihood_value))
+# profile_likelihood <- transform(profile_likelihood, optim_beta=as.numeric(optim_beta))
+# profile_likelihood <- transform(profile_likelihood, optim_kappa=as.numeric(optim_kappa))
+# profile_likelihood <- transform(profile_likelihood, optim_gamma=as.numeric(optim_gamma))
+# profile_likelihood <- transform(profile_likelihood, optim_mu=as.numeric(optim_mu))
+# 
+# # save results
+# write.csv(profile_likelihood, "data/synthetic_fulltrend_4param_profilelikelihood.csv",
+# 		  row.names = FALSE)
+# ```
+# 
+# ```{r, eval=cached_bool}
+# profile_likelihood <- read.csv("data/synthetic_fulltrend_4param_profilelikelihood.csv")
+# ```
+# 
+# #### Visualisation
+# 
+# ```{r plot-profile-4param, fig.height = 5, fig.width = 7, error=TRUE}
+# ymin <- floor(min(profile_likelihood$likelihood_value))
+# ymax <- ceiling(max(profile_likelihood$likelihood_value))
+# profile_beta <- ggplot(profile_likelihood %>% filter(parameter == 'beta'),
+# 					   aes(x = fixed_value, y = likelihood_value)) +
+#   geom_vline(xintercept = simulating_para[1]) + geom_point() +
+#   ylim(ymin, ymax) + ggtitle("beta")
+# profile_kappa <- ggplot(profile_likelihood %>% filter(parameter == 'kappa'),
+# 						aes(x = fixed_value, y = likelihood_value)) +
+#   geom_vline(xintercept = simulating_para[2]) + geom_point() +
+#   ylim(ymin, ymax) + ggtitle("kappa")
+# profile_gamma <- ggplot(profile_likelihood %>% filter(parameter == 'gamma'),
+# 						aes(x = fixed_value, y = likelihood_value)) +
+#   geom_vline(xintercept = simulating_para[3]) + geom_point() +
+#   ylim(ymin, ymax) + ggtitle("gamma")
+# profile_mu <- ggplot(profile_likelihood %>% filter(parameter == 'mu'),
+# 					 aes(x = fixed_value, y = likelihood_value)) +
+#   geom_vline(xintercept = simulating_para[4]) + geom_point() +
+#   ylim(ymin, ymax) + ggtitle("mu")
+# grid.arrange(profile_beta, profile_kappa, profile_gamma, profile_mu, nrow = 2, ncol = 2)
+# ```
+# 
+# With more data points, $\mu$ is still identifiable, observed by a curve with single peak in the profile likelihood.
+# $\kappa$ is considered to be marginally identifiable, with gradual decrease from the peak of the curve.
+# On the other hand, $\beta$ and $\gamma$ are thought to be identifiable up to a certain range; the log-likelihood value for $\beta$ decreases when $\beta$ is smaller than 0.6, while the log-likelihood value for $\gamma$ decreases when $\gamma$ is smaller than 0.38.
+# 
+# ```{r plot-profile-4param-fit, fig.height = 5, fig.width = 7, error=TRUE}
+# ymin <- floor(min(profile_likelihood$likelihood_value))
+# count <- 0
+# for (param_name in profile_parameters){
+#   temp <- profile_likelihood %>% filter(parameter == param_name)
+#   for (i in 1:nrow(temp)){
+#     model <- SEIRD()
+#   	trans_param <- list(beta=temp[i,4], kappa=temp[i,5], gamma=temp[i,6], mu=temp[i,7])
+#     trans_param[names(trans_param) == param_name] <- temp[i,2]
+#     transmission_parameters(model) <- trans_param
+#     initial_conditions(model) <- init_cond 
+#    
+#     times <- seq(0, length(testing_data$Incidence), by = 1)	
+#     out_df <- run(model, times)
+#     
+#     # plot simulated data
+#     fitted_cases <- out_df$changes
+#     fitted_cases <- spread(fitted_cases, compartment, value)
+#     fitted_cases$Incidence <- fitted_cases$Incidence * population_size
+#     fitted_cases$Deaths <- fitted_cases$Deaths * population_size
+#     fitted_cases <- fitted_cases[-1,]
+#     fitted_cases$parameter <- rep(param_name, length(fitted_cases$Incidence))
+#     fitted_cases$fixed_value <- rep(temp$fixed_value[i], length(fitted_cases$Incidence))
+#     
+#     if (count == 0){
+#       total_cases <- fitted_cases
+#     } else{
+#       total_cases <- rbind(total_cases, fitted_cases)
+#     }
+#     count <- count + 1
+#   }
+# }
+# total_cases <- transform(total_cases, fixed_value=as.numeric(fixed_value))
+# case_beta <- ggplot(total_cases %>% filter(parameter == 'beta'),
+# 					aes(x = time, y = Incidence, color=fixed_value)) +
+#   geom_line() +
+#   scale_color_gradient(low = "grey70", high = "grey40") +
+#   guides(colour = guide_colorbar(reverse=TRUE)) +
+#   geom_line(data=testing_data, aes(x = time, y = IncNoise), color='red') +
+#   geom_line(data=testing_data, aes(x = time, y = DeathNoise), color='blue') +
+#   ggtitle("beta")
+# case_kappa <- ggplot(total_cases %>% filter(parameter == 'kappa'),
+# 					 aes(x = time, y = Incidence, color=fixed_value)) +
+#   geom_line() +
+#   scale_color_gradient(low = "grey70", high = "grey40") +
+#   guides(colour = guide_colorbar(reverse=TRUE)) +
+#   geom_line(data=testing_data, aes(x = time, y = IncNoise), color='red') +
+#   geom_line(data=testing_data, aes(x = time, y = DeathNoise), color='blue') +
+#   ggtitle("kappa")
+# case_gamma <- ggplot(total_cases %>% filter(parameter == 'gamma'),
+# 					 aes(x = time, y = Incidence, color=fixed_value)) +
+#   geom_line() +
+#   scale_color_gradient(low = "grey70", high = "grey40") +
+#   guides(colour = guide_colorbar(reverse=TRUE)) +
+#   geom_line(data=testing_data, aes(x = time, y = IncNoise), color='red') +
+#   geom_line(data=testing_data, aes(x = time, y = DeathNoise), color='blue') +
+#   ggtitle("gamma")
+# case_mu <- ggplot(total_cases %>% filter(parameter == 'mu'),
+# 				  aes(x = time, y = Incidence, color=fixed_value)) +
+#   geom_line() +
+#   scale_color_gradient(low = "grey70", high = "grey40") +
+#   guides(colour = guide_colorbar(reverse=TRUE)) +
+#   geom_line(data=testing_data, aes(x = time, y = IncNoise), color='red') +
+#   geom_line(data=testing_data, aes(x = time, y = DeathNoise), color='blue') +
+#   ggtitle("mu")
+# grid.arrange(case_beta, case_kappa, case_gamma, case_mu, nrow = 2, ncol = 2)
+# ```
+# The figure above shows that some of the fits do not perform as well as the others, which may be expected from the profile likelihood.
+# 
+# ## Conclusion
+# 
+# We showed that there are identifiability issues with the parameters in the SEIRD model by showing that multiple sets of parameters can fit the SEIRD model to the pre-intervention London COVID-19 data.
+# These sets of parameters predicted different scenarios for the COVID-19 incidences and deaths, which is not helpful when planning interventions or preparation for estimated cases.
+# We can further understand this identifiability problem by creating profile likelihood for the parameters.
+# We started constructing the profile likelihood with only 2 transmission parameters, namely $\beta$ and $\gamma$, the infectious rate and the recovery rate. The profile likelihood showed that parameters in this simplified SEIRD model are identifiable.
+# When more parameters are included in the profile likelihood, 3 out of the 4 parameters become unidentifiable.
+# However, the identifiability of the parameters were improved when more data is provided.
+# This concludes, at least for the SEIRD model, that large amount of parameters will give rise to identifiability problem, but extra information can improve the situation.
+# Therefore, we have to practice caution when interpreting optimised parameters from models.
+# 
+# ## References
+# # [1] Office for National Statistics. (2020) Census Ouput Area population estimates - London, England.
