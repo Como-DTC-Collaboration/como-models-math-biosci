@@ -28,7 +28,7 @@ library(tidyr)
 ### Choose between plotting cached data or run optimisation
 ```{r bool-cached-data}
 # TRUE to plot saved data, FALSE to run optimisation
-cached_bool <- FALSE
+cached_bool <- TRUE
 set.seed(0)
 ```
 
@@ -79,7 +79,7 @@ ggplot() +
   geom_line(data=London, aes(x = time, y = DailyCases, color="Incidence")) +
   geom_line(data=London, aes(x = time, y = DailyDeaths, color="Deaths")) +
   scale_color_manual(name = "Legend",
-					 values = c("Incidence" = "darkred", "Deaths" = "blue")) +
+					 values = c("Incidence" = "red", "Deaths" = "blue")) +
   labs(x = "time (days)", y = "number of cases") +
   theme(text = element_text(size = 20))
 ```
@@ -255,19 +255,21 @@ Some of the fits even have their peaks in the first 10 days of the pandemic.
 plotting_data <- subset(opt_init_df, select=c(beta_opt, kappa_opt, gamma_opt, mu_opt))
 colnames(plotting_data) <- c("beta", "kappa", "gamma", "mu")
 plotting_data$index <- seq(1, repeat_num)
-plotting_data$id <- rep("optimised", repeat_num)
+plotting_data$legend <- rep("optimised", repeat_num)
 initial_guesses <- subset(opt_init_df,
 						  select=c(beta_init, kappa_init, gamma_init, mu_init))
 colnames(initial_guesses) <- c("beta", "kappa", "gamma", "mu")
 initial_guesses$index <- seq(1, repeat_num)
-initial_guesses$id <- rep("guesses", repeat_num)
+initial_guesses$legend <- rep("guesses", repeat_num)
 data <- rbind(plotting_data, initial_guesses)
-data <- gather(data, key="parameters", value="value", -c(index, id))
+data <- gather(data, key="parameters", value="value", -c(index, legend))
 
 # Plot initial guesses and optimised parameters from optimisation
 # in box plot format
-ggplot(data, aes(x=parameters, y=value, fill=id)) +
-    geom_boxplot()
+ggplot(data, aes(x=parameters, y=value, fill=legend)) +
+    geom_boxplot() +
+	labs(y = "parameter value") +
+	theme(text = element_text(size = 20))
 ```
 
 The box plot compares the summary statistics of prior and posterior of transmission parameters, which are $\beta$, $\kappa$, $\gamma$ and $\mu$.
@@ -278,7 +280,9 @@ plotting_data <- subset(opt_init_df, select=c(obj_fn))
 plotting_data$index <- seq(1, repeat_num)
 data <- gather(plotting_data, key="likelihood_value", value="value", -c(index))
 ggplot(data, aes(x=likelihood_value, y=value)) +
-    geom_boxplot()
+    geom_boxplot() +
+	labs(x = "log-likelihood", y = "log-likelihood value") +
+	theme(text = element_text(size = 20))
 ```
 
 The box plot shows a range of log-likelihood values achieved from different runs of optimisation.
@@ -316,19 +320,21 @@ Given the estimated London population, the maximum difference in peak values of 
 plotting_data <- subset(top_opt_init_df, select=c(beta_opt, kappa_opt, gamma_opt, mu_opt))
 colnames(plotting_data) <- c('beta', 'kappa', 'gamma', 'mu')
 plotting_data$index <- seq(1, chosen_repeats)
-plotting_data$id <- rep("optimised", chosen_repeats)
+plotting_data$legend <- rep("optimised", chosen_repeats)
 initial_guesses <- subset(top_opt_init_df, select=c(beta_init, kappa_init,
 												gamma_init, mu_init))
 colnames(initial_guesses) <- c("beta", "kappa", "gamma", "mu")
 initial_guesses$index <- seq(1, chosen_repeats)
-initial_guesses$id <- rep("guesses", chosen_repeats)
+initial_guesses$legend <- rep("guesses", chosen_repeats)
 data <- rbind(plotting_data, initial_guesses)
-data <- gather(data, key="parameters", value="value", -c(index, id))
+data <- gather(data, key="parameters", value="value", -c(index, legend))
 
 # Plot initial guesses and optimised parameters from optimisation
 # in box plot format
-ggplot(data, aes(x=parameters, y=value, fill=id)) +
-    geom_boxplot()
+ggplot(data, aes(x=parameters, y=value, fill=legend)) +
+    geom_boxplot() +
+	labs(y = "parameter value") +
+	theme(text = element_text(size = 20))
 ```
 
 The box plot shows the range of optimised parameters of optimisations with top 20 highest log-likelihood values. Despite achieving the largest objective value, the transmission parameters, except $\mu$, display a distribution of optimised values, with large standard deviation. This shows that different sets of transmission parameters can achieve similar log-likelihood values. With the London COVID-19 data, the SEIRD model cannot identify the parameters uniquely.   
@@ -409,8 +415,8 @@ ggplot() +
   geom_line(data=testing_data, aes(x = time, y = DeathNoise, color = "Deaths")) +
   geom_line(data=testing_data, aes(x = time, y = IncNoise, color = "Incidence")) +
   scale_color_manual(name = "Cases", values = c("Incidence" = "red", "Deaths" = "blue")) +
-  labs(x = "time (days)", y = "number of the population",
-       title = glue("Evolution of different compartments over time"))
+  labs(x = "time (days)", y = "number of cases") +
+  theme(text = element_text(size = 20))
 ```
 The figure above shows the synthetic data simulated for the full pandemic.
 
@@ -423,8 +429,8 @@ ggplot() +
   geom_line(data=testing_data_short, aes(x = time, y = DeathNoise, color = "Deaths")) +
   geom_line(data=testing_data_short, aes(x = time, y = IncNoise, color = "Incidence")) +
   scale_color_manual(name = "Cases", values = c("Incidence" = "red", "Deaths" = "blue")) +
-  labs(x = "time (days)", y = "number of the population",
-       title = glue("Evolution of different compartments over time"))
+  labs(x = "time (days)", y = "number of cases") +
+  theme(text = element_text(size = 20))
 ```
 
 The first 70 times points (days) of the simulated data is used, giving roughly 40 times points since the first case, which is similar to the London COVID-19 data. 
@@ -594,7 +600,9 @@ profilelikelihood_plot <- function(profile_likelihood, profile_parameters){
 												   y = likelihood_value)) +
 			geom_vline(xintercept = as.numeric(simulating_para[profile_parameters[i]])) +
 			geom_point() + ylim(ymin, ymax) +
-			ggtitle(profile_parameters[i])
+			labs(x = paste("fixed value for", profile_parameters[i]),
+				 y = "log-likelihood value") +
+			theme(text = element_text(size = 20))
 	}
 	grid.arrange(grobs=profile_plot, nrow = length(profile_parameters)%/%2, ncol = 2)
 }
@@ -670,7 +678,9 @@ profilelikelihood_fit <- function(profile_likelihood, profile_parameters, synthe
 	  	guides(colour = guide_colorbar(reverse=TRUE)) +
 	  	geom_line(data=synthetic_data, aes(x = time, y = IncNoise), color='red') +
 	  	geom_line(data=synthetic_data, aes(x = time, y = DeathNoise), color='blue') +
-	  	ggtitle(profile_parameters[i])
+		labs(x = "time (days)", y = "number of cases") +
+	  	ggtitle(profile_parameters[i]) +
+		theme(text = element_text(size = 20))
 	}
 	grid.arrange(grobs=optimised_cases, nrow = length(profile_parameters)%/%2, ncol = 2)
 }
