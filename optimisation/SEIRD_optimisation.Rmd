@@ -600,9 +600,9 @@ profilelikelihood_plot <- function(profile_likelihood, profile_parameters){
 												   y = likelihood_value)) +
 			geom_vline(xintercept = as.numeric(simulating_para[profile_parameters[i]])) +
 			geom_point() + ylim(ymin, ymax) +
-			labs(x = paste("fixed value for", profile_parameters[i]),
-				 y = "log-likelihood value") +
-			theme(text = element_text(size = 20))
+			labs(x = paste("fixed value"), y = "log-likelihood value") +
+			ggtitle(profile_parameters[i]) +
+			theme(text = element_text(size = 15))
 	}
 	grid.arrange(grobs=profile_plot, nrow = length(profile_parameters)%/%2, ncol = 2)
 }
@@ -671,16 +671,16 @@ profilelikelihood_fit <- function(profile_likelihood, profile_parameters, synthe
 	optimised_cases <- vector('list', length(profile_parameters))
 	for (i in 1:length(profile_parameters)){
 		plotting_data <- total_cases %>% filter(parameter == profile_parameters[i])
-		optimised_cases[[i]] <- ggplot(plotting_data,
-						aes(x = time, y = Incidence, color=fixed_value)) +
-	  	geom_line() +
-	  	scale_color_gradient(low = "grey70", high = "grey40") +
-	  	guides(colour = guide_colorbar(reverse=TRUE)) +
-	  	geom_line(data=synthetic_data, aes(x = time, y = IncNoise), color='red') +
-	  	geom_line(data=synthetic_data, aes(x = time, y = DeathNoise), color='blue') +
+		optimised_cases[[i]] <- ggplot() +
+	  	geom_line(data=plotting_data, aes(x = time, y = Incidence, group = fixed_value), 
+				  color = "grey40") +
+		geom_line(data=plotting_data, aes(x = time, y = Deaths,group = fixed_value),
+				  color = "grey40") +
+	  	geom_line(data=synthetic_data, aes(x = time, y = IncNoise), color = 'red') +
+	  	geom_line(data=synthetic_data, aes(x = time, y = DeathNoise), color = 'blue') +
 		labs(x = "time (days)", y = "number of cases") +
 	  	ggtitle(profile_parameters[i]) +
-		theme(text = element_text(size = 20))
+		theme(text = element_text(size = 15))
 	}
 	grid.arrange(grobs=optimised_cases, nrow = length(profile_parameters)%/%2, ncol = 2)
 }
