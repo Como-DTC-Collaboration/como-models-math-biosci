@@ -6,10 +6,10 @@ library(comomodels)
 library(deSolve)
 library(ggplot2)
 library(tidyverse)
-#> ── Attaching packages ─────────────────────────────────────── tidyverse 1.3.0 ──
-#> ✓ tibble  3.1.0     ✓ dplyr   1.0.5
-#> ✓ tidyr   1.1.3     ✓ stringr 1.4.0
-#> ✓ readr   1.4.0     ✓ forcats 0.5.1
+#> ── Attaching packages ─────────────────────────────────────── tidyverse 1.3.1 ──
+#> ✓ tibble  3.1.5     ✓ dplyr   1.0.7
+#> ✓ tidyr   1.1.4     ✓ stringr 1.4.0
+#> ✓ readr   2.0.2     ✓ forcats 0.5.1
 #> ✓ purrr   0.3.4
 #> ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
 #> x dplyr::filter() masks stats::filter()
@@ -56,25 +56,25 @@ equation
 $$\\frac{df}{dt} = g(t, f)$$
 
 (note that *f* may be a vector-valued function), as well as an initial
-condition *f*(*t* = *t*<sub>0</sub>). Forward Euler forms an approximate
+condition *f*(*t*=*t*<sub>0</sub>). Forward Euler forms an approximate
 solution {*f*<sub>*i*</sub>}<sub>*i* = 0</sub><sup>*N*</sup> on a set of
 time points
 {*t*<sub>*i*</sub> = *t*<sub>0</sub> + *i**Δ**t*}<sub>*i* = 0</sub><sup>*N*</sup>
 which is given by:
 
-*f*<sub>0</sub> = *f*(*t* = *t*<sub>0</sub>);
-*f*<sub>*i* + 1</sub> = *f*<sub>*i*</sub> + *g*(*t*<sub>*i*</sub>, *f*<sub>*i*</sub>)*Δ**t*,    *i* = 1, …, *N* − 1.
+*f*<sub>0</sub> = *f*(*t*=*t*<sub>0</sub>);
+*f*<sub>*i* + 1</sub> = *f*<sub>*i*</sub> + *g*(*t*<sub>*i*</sub>,*f*<sub>*i*</sub>)*Δ**t*,    *i* = 1, …, *N* − 1.
 
 ### Importance of the solver step size
 
 Note that *Δ**t*—the time spacing between adjacent values in the
 approximate solution—is a critical parameter of the Euler method. While
 calculating the next function value *f*<sub>*i* + 1</sub>, the Euler
-method approximates the derivative *g*(*t*, *f*) with the constant value
-*g*(*t*<sub>*i*</sub>, *f*<sub>*i*</sub>) for the interval
-(*t*<sub>*i*</sub>, *t*<sub>*i*</sub> + *Δ**t*). However, in actuality,
-*g*(*t*, *f*) presumably varies over time—thus, as *Δ**t* is allowed to
-get larger, the approximation of *g*(*t*, *f*) by a constant value on an
+method approximates the derivative *g*(*t*,*f*) with the constant value
+*g*(*t*<sub>*i*</sub>,*f*<sub>*i*</sub>) for the interval
+(*t*<sub>*i*</sub>,*t*<sub>*i*</sub>+*Δ**t*). However, in actuality,
+*g*(*t*,*f*) presumably varies over time—thus, as *Δ**t* is allowed to
+get larger, the approximation of *g*(*t*,*f*) by a constant value on an
 interval of width *Δ**t* becomes more prone to error, which ultimately
 accumulates in the approximate solution and causes it to deviate from
 the true values.
@@ -252,7 +252,7 @@ cases and deaths) to be overestimated by several days.
 The forward Euler recurrence relation defining the approximate solution
 to a *differential* equation,
 
-*f*<sub>*i* + 1</sub> = *f*<sub>*i*</sub> + *Δ**t**g*(*t*<sub>*i*</sub>, *f*<sub>*i*</sub>),
+*f*<sub>*i* + 1</sub> = *f*<sub>*i*</sub> + *Δ**t**g*(*t*<sub>*i*</sub>,*f*<sub>*i*</sub>),
 
 is identical with a typical definition of a *difference* equation of the
 sort used in multiple fields of computational biology, including
@@ -324,7 +324,7 @@ ptm <- proc.time()
 solution_dense <- run(model, times_dense, solve_method='euler')
 proc.time() - ptm
 #>    user  system elapsed 
-#>   1.635   0.023   1.659
+#>   0.955   0.000   0.955
 
 times_daily <- seq(0, 50, by=1)
 print("Timing for LSODA (adaptive step):")
@@ -333,7 +333,7 @@ ptm <- proc.time()
 solution_adapt <- run(model, times_daily, solve_method='lsoda')
 proc.time() - ptm
 #>    user  system elapsed 
-#>   0.008   0.000   0.008
+#>   0.005   0.000   0.005
 
 df <- solution_dense$changes
 df <- as.data.frame(df)
@@ -395,6 +395,34 @@ epidemiological models such as those covered by the comomodels package,
 we highly recommend the use of adaptive solvers such as LSODA (the
 default choice of solver in comomodels) for speed and accuracy.
 
+## Discontinuities in the RHS (interventions)
+
+Differential equations of the form
+
+$$\\frac{df}{dt} = g(t, f)$$
+
+where *g* is discontinuous present further challenges to both adaptive
+and fixed step size methods, whose error properties (and, for adaptive
+step size methods, the algorithms used to determine the time steps)
+typically assume differentiability of *g*.
+
+In the epidemiological models of the sort described by comomodels,
+discontinuities of *g* in time are possible, most notably in the SEIRDV
+model where step function interventions may be used to specify the rate
+of vaccination.
+
+Some of the numerical methods that can be used to increase efficiency
+and decrease error in the case of discontinuous *g* are:
+
+1.  Divide the time interval into sets where *g* is continuous, and
+    solve the ODE on each set separately.
+2.  Replace the discontinuous *g* with a smooth approximation, and use a
+    standard solver.
+
+The second approach is adopted by the SEIRDV model, as a tanh
+approximation to the step function is used. Further details and a
+general treatment may be found in (Stewart 2011), Chapter 8.
+
 ## References
 
 <div id="refs" class="references csl-bib-body hanging-indent">
@@ -410,6 +438,13 @@ Business Media.
 
 Hindmarsh, AC, and LR Petzold. 2005. “LSODA, Ordinary Differential
 Equation Solver for Stiff or Non-Stiff System.”
+
+</div>
+
+<div id="ref-stewart2011dynamics" class="csl-entry">
+
+Stewart, David E. 2011. *Dynamics with Inequalities: Impacts and Hard
+Constraints*. SIAM.
 
 </div>
 
