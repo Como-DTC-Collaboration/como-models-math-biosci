@@ -1,8 +1,0 @@
-install.packages("deSolve")
-install.packages("ggplot2")
-install.packages("glue")
-install.packages("knitr")
-install.packages("rmarkdown")
-install.packages("socialmixr")
-install.packages("tidyverse")
-remotes::install_github("Como-DTC-Collaboration/como-models")

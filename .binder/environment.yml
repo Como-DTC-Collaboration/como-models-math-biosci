@@ -1,0 +1,11 @@
+channels:
+  - conda-forge
+dependencies:
+  - r-base=3.8
+  - r-desolve
+  - r-ggplot2
+  - r-glue
+  - r-knitr
+  - r-rmarkdown
+#  - r-socialmixr
+  - r-tidyverse
