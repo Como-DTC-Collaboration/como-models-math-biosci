@@ -9,3 +9,9 @@ Interactive notebooks accompanying the article _Learning transmission dynamics m
 ## Instructions
 
 Some instructions here about getting all dependencies set up, including R and required packages.
+
+## Instructions
+
+<!-- badges: start -->
+  [![Launch Rstudio Binder](http://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Como-DTC-Collaboration/como-models-math-biosci/binder_test?urlpath=rstudio)
+  <!-- badges: end -->
