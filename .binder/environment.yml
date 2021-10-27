@@ -15,9 +15,7 @@ dependencies:
   - r-gridextra
   - r-magrittr
   - r-markdown
-  - r-methods
   - r-reshape2
   - r-rlang
-  - r-rmarkdown
   - r-testthat
   - r-viridis
