@@ -1,0 +1,2 @@
+R --quiet -e "remotes::install_github('Como-DTC-Collaboration/como-models')"
+
