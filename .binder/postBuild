@@ -1,2 +1,2 @@
+R --quiet -e "install.packages('socialmixr')"
 R --quiet -e "remotes::install_github('Como-DTC-Collaboration/como-models')"
-R --quiet -e "devtools::install()"
