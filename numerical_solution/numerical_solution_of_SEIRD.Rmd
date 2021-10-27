@@ -366,4 +366,23 @@ covered by the comomodels package, we highly recommend the use of adaptive
 solvers such as LSODA (the default choice of solver in comomodels) for
 speed and accuracy.
 
+
+## Discontinuities in the RHS (interventions)
+
+Differential equations of the form
+
+$$\frac{df}{dt} = g(t, f)$$
+
+where $g$ is discontinuous present further challenges to both adaptive and fixed step size methods, whose error properties (and, for adaptive step size methods, the algorithms used to determine the time steps) typically assume differentiability of $g$.
+
+In the epidemiological models of the sort described by comomodels, discontinuities of $g$ in time are possible, most notably in the SEIRDV model where step function interventions may be used to specify the rate of vaccination.
+
+Some of the numerical methods that can be used to increase efficiency and decrease error in the case of discontinuous $g$ are:
+
+1. Divide the time interval into sets where $g$ is continuous, and solve the ODE on each set separately.
+2. Replace the discontinuous $g$ with a smooth approximation, and use a standard solver.
+
+The second approach is adopted by the SEIRDV model, as a tanh approximation to the step function is used. Further details and a general treatment may be found in [@stewart2011dynamics], Chapter 8.
+
+
 ## References
