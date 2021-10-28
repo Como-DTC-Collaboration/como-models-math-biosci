@@ -7,6 +7,7 @@ vignette: >
   %\VignetteIndexEntry{Vignette Title}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
+bibliography: ../references.bib
 ---
 
 ```{r, include = FALSE}
@@ -35,16 +36,12 @@ set.seed(0)
 ## Introduction
 By fitting models of transmission dynamics to epidemiological data, we determine the combinations of model parameters which are most consistent with observations. Models of transmission dynamics, like the SEIRD model, are, however, highly nonlinear and may have many parameters. Because of these characteristics, many combinations of parameters may be equally able to explain the observed data. That is, the model may be unidentified given the observations at hand.
 
-In this vignette, we illustrate how early on during an epidemic, many parameter sets of the SEIRD model are consistent with the data (here, we assume that only cases and deaths are observed). Because of this, it is important to practice caution when making forecasts of the resultant path of the epidemic. In particular, it is essential that the uncertainty in the model fit be taken into account when making projections. Here, we illustrate this using the range of optimisation results obtained when fitting to the same data, but alternative approaches to this uncertainty quantification include Bayesian inference.
+Here, we illustrate how early on during an epidemic, many parameter sets of the SEIRD model are consistent with the data (here, we assume that only cases and deaths are observed). Because of this, it is important to practice caution when making forecasts of the resultant path of the epidemic. In particular, it is essential that the uncertainty in the model fit be taken into account when making projections. Here, we illustrate this using the range of optimisation results obtained when fitting to the same data, but alternative approaches to this uncertainty quantification include Bayesian inference.
 
+In this vignette, we begin by performing optimisations using real COVID-19 case and deaths data. Next, we use profile likelihood methods to formally determine identifiability of the SEIRD model using simulate data (i.e. data generated using known parameter values). Our approach illustrates the importance of using simulated data for assessing identification of epidemiological models.
 
-## Optimisation on real London COVID-19 data
-First, we will try to optimise the model by fitting to the London COVID-19 data.
-The time period of data we used is set to be the period before any interventions was implemented, lockdown in this case.
-Each interventions can be thought as a change of the SEIRD model parameters.
-Since we are fitting only one set of parameters, constant throughout the whole period, we use the London COVID-19 data only up to the implementation of lockdown.
-The population size for London is assumed to be $9 \times 10^6$;
-it is the estimated population of London in 2020 extracted from Ref. [london_data].
+## Optimisation on real COVID-19 cases and deaths data for London
+We begin by fitting the SEIRD model to real COVID-19 case and deaths data for London. To illustrate the difficulty of making predictions early on during an epidemic, we constrained our period of observation to lie between the 20th January 2020 to 22nd March 2020. We chose this period because, on the 23rd March, (the UK government imposed the first lockdown)[https://www.gov.uk/government/speeches/pm-address-to-the-nation-on-coronavirus-23-march-2020] and after that time, a model that does not allow changes to contact frequencies would not reproduce the observed dynamics. In what follows, the population size for London is assumed to be $9 \times 10^6$ @londoncensus.
 
 ```{r london-data}
 # Load London COVID-19 data
