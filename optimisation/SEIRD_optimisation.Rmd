@@ -33,16 +33,10 @@ set.seed(0)
 ```
 
 ## Introduction
-This document shows an application of the SEIRD model class within the [`como-models`](https://github.com/Como-DTC-Collaboration/como-models) package to the COVID-19 data.
-By fitting the SEIRD model to the COVID-19 data, we can use the model to learn (such as) the transmission rate and the death rate of the epidemic.
-We can also make predictions of the pandemic using the fitted model.
-However, due to limited information and presence of uncertainty, the data may not be able to confine or identify a single set of model parameters for the data;
-that is, multiple sets of parameters can fit the model to the data whilst giving same objective value (in our example, it is the log-likelihood value).
-This is known as an issue of identifiability in the model parameters.
+By fitting models of transmission dynamics to epidemiological data, we determine the combinations of model parameters which are most consistent with observations. Models of transmission dynamics, like the SEIRD model, are, however, highly nonlinear and may have many parameters. Because of these characteristics, many combinations of parameters may be equally able to explain the observed data. That is, the model may be unidentified given the observations at hand.
 
-In this vignette, we show how optimisation can be done with the `como-models` package, and how the identifiabilty of parameters in the SEIRD model can be assessed.
-We also demonstrate that one has to be caution when intepreting optimisation results.
-Throughout the vignette, we assume that there is no unreported cases.
+In this vignette, we illustrate how early on during an epidemic, many parameter sets of the SEIRD model are consistent with the data (here, we assume that only cases and deaths are observed). Because of this, it is important to practice caution when making forecasts of the resultant path of the epidemic. In particular, it is essential that the uncertainty in the model fit be taken into account when making projections. Here, we illustrate this using the range of optimisation results obtained when fitting to the same data, but alternative approaches to this uncertainty quantification include Bayesian inference.
+
 
 ## Optimisation on real London COVID-19 data
 First, we will try to optimise the model by fitting to the London COVID-19 data.
