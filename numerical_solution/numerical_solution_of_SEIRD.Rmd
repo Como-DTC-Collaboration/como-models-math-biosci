@@ -1,6 +1,6 @@
 ---
 title: "Numerical solution of SEIRD"
-output: rmarkdown::github_document
+output: rmarkdown::pdf_document
 bibliography: ../references.bib
 vignette: >
   %\VignetteIndexEntry{Numerical solution of SEIRD}
@@ -130,13 +130,13 @@ numerical_solution_dense = ode(
 results_sparse <- data.frame(
   t=numerical_solution_sparse[,1],
   f=numerical_solution_sparse[,2],
-  method="Numerical, Δt=1"
+  method="Numerical, dt=1"
 )
 
 results_dense <- data.frame(
   t=numerical_solution_dense[,1],
   f=numerical_solution_dense[,2],
-  method="Numerical, Δt=0.1"
+  method="Numerical, dt=0.1"
 )
 
 results_true <- data.frame(
@@ -213,8 +213,8 @@ for (t in times_daily) {
 changes_dense <- changes_dense[order(changes_dense$compartment, changes_dense$time),]
 
 # Save the labels and combine for plotting
-changes_dense$method <- "Δt=0.001 Day (accurate)"
-changes_daily$method <- "Δt=1 Day"
+changes_dense$method <- "dt=0.001 Day (accurate)"
+changes_daily$method <- "dt=1 Day"
 all_changes <- rbind(changes_dense, changes_daily)
 
 
@@ -334,7 +334,7 @@ for (t in times_daily) {
 
 # Save the labels and combine for plotting
 changes_adapt <- solution_adapt$changes
-changes_dense$method <- "Euler, Δt=0.001 Day"
+changes_dense$method <- "Euler, dt=0.001 Day"
 changes_adapt$method <- "LSODA (adaptive step)"
 all_changes <- rbind(changes_dense, changes_adapt)
 
