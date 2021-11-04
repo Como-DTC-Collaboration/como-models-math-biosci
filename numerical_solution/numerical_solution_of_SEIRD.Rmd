@@ -38,7 +38,7 @@ applications, SEIRD differential equations do not admit analytical solutions.
 Instead, an approximation of the solution must be obtained using numerical
 methods.
 
-Epidemiological differential equations can be solved easily using simple fixed
+Epidemiological differential equations can be solved straightforwardly using simple fixed
 time step solver such as the Euler method. In this notebook, we show that when
 such methods are employed without sufficient care in the selection of the time
 step, high error in the numerical solution may occur. We recommend more
@@ -70,15 +70,12 @@ Note that $\Delta t$—the time spacing between adjacent values in the
 approximate solution—is a critical parameter of the Euler method. While 
 calculating the next function value $f_{i+1}$, the Euler method approximates 
 the derivative $g(t, f)$ with the constant value $g(t_i, f_i)$ for the interval
-$(t_i, t_i + \Delta t)$. However, in actuality, $g(t, f)$ presumably varies
-over time—thus, as $\Delta t$ is allowed to get larger, the approximation of
-$g(t, f)$ by a constant value on an interval of width $\Delta t$ becomes more
-prone to error, which ultimately accumulates in the approximate solution and
-causes it to deviate from the true values.
+$(t_i, t_i + \Delta t)$. However, $g(t, f)$ typically varies
+over time—thus, as $\Delta t$ increases, this approximation becomes worse, and this approximation error accumulates in the numerical solution and causes it to deviate from the true values.
 
 However, obtaining a satisfactory solution to the differential equation is not
 as simple as setting $\Delta t$ to some minuscule value, as decreasing the 
-value of $\Delta t$ will cause the runtime of the method to increase, and for
+value of $\Delta t$ increases the runtime of the solver, and for
 very small values of $\Delta t$, the runtime may be prohibitive.
 
 ### Effect of solver step size on solutions
