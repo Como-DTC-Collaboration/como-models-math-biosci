@@ -86,9 +86,10 @@ analytical solution. The differential equation is:
 
 $$\frac{df}{dt} = 2t;\;\;\;\; f(t=0)=0$$
 
-We solve this differential equation on the interval from $t=0$ to $t=3$ with
-two different choices of the time step ($\Delta t=1$ and $\Delta t=0.1$). We 
-compare the obtained approximate solutions with the known true solution.
+The analytical solution is $f(t) = t^2$. We solve this differential equation on
+the interval from $t=0$ to $t=3$ with two different choices of the time step
+($\Delta t=1$ and $\Delta t=0.1$). We compare the obtained approximate
+solutions with the known true solution.
 
 ```{r, fig.width=7, fig.height=5}
 rhs <- function(t, state, params){
@@ -175,10 +176,11 @@ different choices for the solver step size. The first is a daily time step,
 which naively might be considered an acceptable default choice, given that we 
 are interested in simulating daily cases and deaths. We also consider a much 
 smaller time step of 0.001 days, for which we know that the solution is 
-sufficiently accurate (see the following section for further details on 
-obtaining accurate numerical solutions).
+sufficiently accurate (see the section "Adaptive step size methods" below for
+further details on obtaining numerical solutions with a desired degree of 
+accuracy).
 
-```{r, fig.width=7, fig.height=5}
+```{r, fig.width=11, fig.height=5}
 times_daily <- seq(0, 50, by=1)
 solution_daily <- run(model, times_daily, solve_method="euler")
 changes_daily <- solution_daily$changes
@@ -214,21 +216,19 @@ changes_dense$method <- "dt=0.001 Day (accurate)"
 changes_daily$method <- "dt=1 Day"
 all_changes <- rbind(changes_dense, changes_daily)
 
-
-ggplot(subset(all_changes, all_changes[,3]=="Incidence"), 
+ggplot(subset(all_changes, all_changes[,3]=="Deaths" | all_changes[,3]=="Incidence"), 
        aes(x = time, y = value, fill = method)) +
   geom_bar(stat="identity", position = position_dodge()) +
-  labs(title="Incidence")
-
-ggplot(subset(all_changes, all_changes[,3]=="Deaths"), 
-       aes(x = time, y = value, fill = method)) +
-  geom_bar(stat="identity", position = position_dodge()) +
-  labs(title="Deaths")
+  labs(title="Deaths and Incidence") +
+  facet_wrap(~ all_changes[,3])
 ```
 These results indicate that for the SEIRD model with these parameters, a daily
 step size is much too large to obtain accurate results. The daily step size
 causes the date of the peak of the epidemic (for both incident cases and
-deaths) to be overestimated by several days.
+deaths) to be overestimated by several days, due to the inaccuracy of the 
+constant derivative assumption introduced by the Euler method.
+
+
 
 ## Differential equations versus difference equations
 
@@ -238,7 +238,8 @@ _differential_ equation,
 $$f_{i+1} = f_i + \Delta t g(t_i, f_i),$$
 
 is identical with a typical definition of a _difference_ equation of the sort 
-used in multiple fields of computational biology, including epidemiology.
+used in multiple fields of computational biology, including epidemiology (see
+[@izzo2009general]).
 
 Thus, what we have up till now treated as numerical error arising from the
 forward Euler method may alternatively be viewed as the discrepancy between an
@@ -261,15 +262,17 @@ methods suffer because:
 1. To obtain an accurate solution, the solver step size must be set to some
 small value, but it is often unknown how small this value must be.
 2. When the solver step size is set to a small value, the method may be
-unpleasantly slow.
+impractically slow.
 
 Both of these defects are addressed by adaptive step size methods. In these,
 the user specifies not a step size but a _tolerance_—some relative or absolute
-number which the local error in the approximate solution should not exceed. 
+value which the local error in the approximate solution should not exceed. 
 Then, the solver algorithm selects the appropriate step size in order for the
-solution to meet this tolerance. Adaptive solvers are able to vary the step
+solution to meet this tolerance, using the theoretical error properties of the 
+solver and various heuristic techniques. Adaptive solvers are able to vary the step
 size over the course of the solve, selecting very small values only in those
-regions of time where this is necessary, and otherwise increasing the step size
+regions of time where this is necessary, such as where the solution is 
+changing rapidly over time, and otherwise increasing the step size
 to larger values. For this reason, they are much more efficient than fixed step
 solvers.
 
@@ -280,7 +283,7 @@ such that the threshold imposed by the user-supplied tolerance is not exceeded.
 
 Although adaptive step size solvers are challenging to implement, it is often
 possible to rely on existing implementations. In R, a wide selection of 
-adaptive step size solvers are provided by the deSolve package. The comomodels
+adaptive step size solvers are provided by the deSolve package [@soetaert2010solving]. The comomodels
 library uses deSolve to handle numerical solution of the systems of ODEs that 
 arise in compartmental epidemiology models, giving users easy access to
 efficient adaptive step size solvers. In comomodels, default values
@@ -295,7 +298,7 @@ solver with a fixed, small step size to that of the LSODA adaptive step size
 solver.
 
 
-```{r, fig.width=7, fig.height=5}
+```{r, fig.width=11, fig.height=5}
 times_dense <- seq(0, 50, by=0.001)
 print("Timing for Euler (fixed step):")
 ptm <- proc.time()
@@ -335,20 +338,15 @@ changes_dense$method <- "Euler, dt=0.001 Day"
 changes_adapt$method <- "LSODA (adaptive step)"
 all_changes <- rbind(changes_dense, changes_adapt)
 
-
-ggplot(subset(all_changes, all_changes[,3]=="Incidence"), 
+ggplot(subset(all_changes, all_changes[,3]=="Deaths" | all_changes[,3]=="Incidence"), 
        aes(x = time, y = value, fill = method)) +
   geom_bar(stat="identity", position = position_dodge()) +
-  labs(title="Incidence")
-
-ggplot(subset(all_changes, all_changes[,3]=="Deaths"), 
-       aes(x = time, y = value, fill = method)) +
-  geom_bar(stat="identity", position = position_dodge()) +
-  labs(title="Deaths")
+  labs(title="Deaths and Incidence") +
+  facet_wrap(~ all_changes[,3])
 
 ```
 Both methods achieve the same accurate solution. However, for the LSODA solver,
-no fiddling with step sizes is necessary: we merely provide the time points at 
+it is not necessary to manually select a time step: we merely provide the time points at 
 which we want to access the solution (daily), and the solver handles the
 selection of the step sizes. We also note the significant speed advantage of
 the LSODA solver, which may be more than 50 times faster (the actual runtimes
@@ -359,9 +357,8 @@ equations, and when supplied with insufficient tolerances for the simulation or
 inference task at hand, they may be responsible for errors just as pernicious
 as those arising from fixed step solvers with too large step sizes. However,
 for the simulation of compartmental epidemiological models such as those
-covered by the comomodels package, we highly recommend the use of adaptive
-solvers such as LSODA (the default choice of solver in comomodels) for
-speed and accuracy.
+covered by the comomodels package, adaptive solvers such as LSODA (the default choice of solver in
+comomodels) generally perform better in terms of solution fidelity and speed.
 
 
 ## Discontinuities in the RHS (interventions)
@@ -379,7 +376,154 @@ Some of the numerical methods that can be used to increase efficiency and decrea
 1. Divide the time interval into sets where $g$ is continuous, and solve the ODE on each set separately.
 2. Replace the discontinuous $g$ with a smooth approximation, and use a standard solver.
 
-The second approach is adopted by the SEIRDV model, as a tanh approximation to the step function is used. Further details and a general treatment may be found in [@stewart2011dynamics], Chapter 8.
+The second approach is adopted by the SEIRDV model, as a tanh approximation to the step function is used.
+
+First, we study the effects of a discontinuity in the vaccination rate in the 
+SEIRDV model without a tanh approximation. The vaccination rate is set to 0.15 from $t=4.75$ to $t=9.75$, and 0
+elsewhere. The model is solved using an Euler solver with a large time step 
+of 0.5 days, once without any consideration of the discontinuities and once
+with solver time steps inserted at the discontinuities (method 1 above). These 
+results are compared to an accurate (but potentially inefficient) solution
+obtained using the LSODA solver.
+
+```{r, fig.width=8, fig.height=5}
+model <- SEIRDV()
+params <- list(beta=1, kappa=0.9, gamma=0.5, mu=0.1, nu=0.4, delta_V=0.15, delta_R=0.05)
+transmission_parameters(model) <- params
+initial_conditions(model) <- list(S0=0.99, E0=0, I0=0.01, R0=0, V0=0)
+intervention_parameters(model) <- list(starts=c(4.75),
+                                       stops=c(9.75),
+                                       coverages=c(1),
+                                       tanh_slopes=1000)
+
+times <- seq(0, 20, by = 1)
+df1 <- run(model, times, solve_method="lsoda")$changes
+df1$method = "Accurate (LSODA)"
+
+solver_times <- seq(0, 20, by=0.5)
+df2 <- run(model, solver_times, solve_method="euler")$changes
+
+df2_dense <- data.frame(time=NULL, value=NULL, compartment=NULL)
+for (t in times) {
+  cases = subset(df2, t-1<df2[,1] & df2[,1]<=t)
+  incidence = subset(cases, cases[,3]=="Incidence")
+  death = subset(cases, cases[,3]=="Deaths")
+  df2_dense = rbind(df2_dense, 
+                        data.frame(time=t,
+                                   value=sum(incidence$value),
+                                   compartment="Incidence",
+                                   age_range="0-150"))
+  df2_dense = rbind(df2_dense,
+                        data.frame(time=t,
+                                   value=sum(death$value),
+                                   compartment="Deaths",
+                                   age_range="0-150"))
+}
+df2_dense$method = "Euler, dt=0.5 day"
+
+
+
+solver_times <- sort(c(solver_times, 4.75, 9.75))
+df3 <- run(model, solver_times, solve_method="euler")$changes
+
+df3_dense <- data.frame(time=NULL, value=NULL, compartment=NULL)
+for (t in times) {
+  cases = subset(df3, t-1<df3[,1] & df3[,1]<=t)
+  incidence = subset(cases, cases[,3]=="Incidence")
+  death = subset(cases, cases[,3]=="Deaths")
+  df3_dense = rbind(df3_dense, 
+                        data.frame(time=t,
+                                   value=sum(incidence$value),
+                                   compartment="Incidence",
+                                   age_range="0-150"))
+  df3_dense = rbind(df3_dense,
+                        data.frame(time=t,
+                                   value=sum(death$value),
+                                   compartment="Deaths",
+                                   age_range="0-150"))
+}
+df3_dense$method = "Euler, dt=0.5 day, start/stop at discon"
+
+df <- rbind(df1, df3_dense, df2_dense)
+
+ggplot(subset(df, df[,3]=="Incidence"), 
+       aes(x = time, y = value, fill = method)) +
+  geom_bar(stat="identity", position = position_dodge()) +
+  labs(title="Incidence")
+
+```
+
+Both Euler solvers experience large error due to the large step size. However,
+additional error caused by the discontinuous $\delta_V$ is apparent.
+
+An alternative approach is to smooth the discontinuity. In comomodels SEIRDV,
+this can be performed by supplying an appropriate slope to the tanh function
+that is used to smooth the $\delta_V$ profile:
+
+```{r, fig.width=8, fig.height=5}
+int_parms <- InterventionParameters(start=c(4.75),
+                                    stop=c(9.75),
+                                    coverage=c(1),
+                                    tanh_slope=1000)
+
+sim_parms <- SimulationParameters(start=0, stop=20, tstep = 0.1)
+i1 <- intervention_protocol(int_parms, sim_parms)
+i1$method <- "Original profile"
+
+int_parms2 <- InterventionParameters(start=c(4.75),
+                                    stop=c(9.75),
+                                    coverage=c(1),
+                                    tanh_slope=2)
+sim_parms2 <- SimulationParameters(start=0, stop=20, tstep = 0.1)
+i2 <- intervention_protocol(int_parms2, sim_parms2)
+i2$method <- "tanh-smoothed profile"
+
+ggplot(rbind(i1, i2), aes(x=time, y=coverage, color=method)) +
+  geom_line() +
+  scale_color_brewer(palette = "Dark2") +
+  labs(x = "time (days)", y = "level of intervention") +
+  theme(text = element_text(size = 20))
+```
+Next, we compare the effects of the tanh smoothing on the simulated incidences.
+
+```{r, fig.width=8, fig.height=5}
+model <- SEIRDV()
+params <- list(beta=1, kappa=0.9, gamma=0.5, mu=0.1, nu=0.4, delta_V=0.15, delta_R=0.05)
+transmission_parameters(model) <- params
+initial_conditions(model) <- list(S0=0.99, E0=0, I0=0.01, R0=0, V0=0)
+intervention_parameters(model) <- list(starts=c(4.75),
+                                       stops=c(9.75),
+                                       coverages=c(1),
+                                       tanh_slopes=1000)
+
+times <- seq(0, 20, by = 1)
+df1 <- run(model, times, solve_method="lsoda")$changes
+df1$method = "Without tanh smoothing"
+
+
+intervention_parameters(model) <- list(starts=c(4.75),
+                                       stops=c(9.75),
+                                       coverages=c(1),
+                                       tanh_slopes=2)
+
+times <- seq(0, 20, by = 1)
+df2 <- run(model, times, solve_method="lsoda")$changes
+df2$method = "With tanh smoothing"
+
+df <- rbind(df1, df2)
+
+ggplot(subset(df, df[,3]=="Incidence"), 
+       aes(x = time, y = value, fill = method)) +
+  geom_bar(stat="identity", position = position_dodge()) +
+  labs(title="Incidence")
+```
+Some slight differences are observed as a result of the tanh smoothing. Although the
+tanh smoothing does change the model behavior, in most applications of epidemiological
+modelling the smoothed version of the model is not only more tractable for numerical
+solvers but also more closely resembles realistic situations, where policies and
+interventions that change the parameters of the model take some time to be implemented.
+
+Further details and a general treatment may be found in [@stewart2011dynamics], Chapter 8.
 
 
 ## References
