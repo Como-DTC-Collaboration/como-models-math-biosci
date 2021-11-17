@@ -249,8 +249,7 @@ that this discrepancy is not negligible. While difference equations can be
 valid and tenable models for certain phenomena, we see that a daily SEIRD
 difference equation cannot be considered equivalent to the original SEIRD
 differential equation model, that is, the same parameter values can cause 
-substantially different outputs from each model.
-
+substantially different outputs from each model. Difference equations tend to be a more appropriate modelling framework when considering non-overlapping generations, which is not generally the case in epidemiological modelling.
 
 ## Adaptive step size methods
 
@@ -384,7 +383,7 @@ elsewhere. The model is solved using an Euler solver with a large time step
 of 0.5 days, once without any consideration of the discontinuities and once
 with solver time steps inserted at the discontinuities (method 1 above). These 
 results are compared to an accurate (but potentially inefficient) solution
-obtained using the LSODA solver.
+obtained using the LSODA solver. The time period of vaccination is shaded in yellow.
 
 ```{r, fig.width=8, fig.height=5}
 model <- SEIRDV()
@@ -397,59 +396,28 @@ intervention_parameters(model) <- list(starts=c(4.75),
                                        tanh_slopes=1000)
 
 times <- seq(0, 20, by = 1)
-df1 <- run(model, times, solve_method="lsoda")$changes
+df1 <- run(model, times, solve_method="lsoda")$states
 df1$method = "Accurate (LSODA)"
 
 solver_times <- seq(0, 20, by=0.5)
-df2 <- run(model, solver_times, solve_method="euler")$changes
-
-df2_dense <- data.frame(time=NULL, value=NULL, compartment=NULL)
-for (t in times) {
-  cases = subset(df2, t-1<df2[,1] & df2[,1]<=t)
-  incidence = subset(cases, cases[,3]=="Incidence")
-  death = subset(cases, cases[,3]=="Deaths")
-  df2_dense = rbind(df2_dense, 
-                        data.frame(time=t,
-                                   value=sum(incidence$value),
-                                   compartment="Incidence",
-                                   age_range="0-150"))
-  df2_dense = rbind(df2_dense,
-                        data.frame(time=t,
-                                   value=sum(death$value),
-                                   compartment="Deaths",
-                                   age_range="0-150"))
-}
-df2_dense$method = "Euler, dt=0.5 day"
-
+df2 <- run(model, solver_times, solve_method="euler")$states
+df2$method = "Euler, dt=0.5 day"
 
 
 solver_times <- sort(c(solver_times, 4.75, 9.75))
-df3 <- run(model, solver_times, solve_method="euler")$changes
+df3 <- run(model, solver_times, solve_method="euler")$states
+df3$method = "Euler, dt=0.5 day, start/stop at discon"
 
-df3_dense <- data.frame(time=NULL, value=NULL, compartment=NULL)
-for (t in times) {
-  cases = subset(df3, t-1<df3[,1] & df3[,1]<=t)
-  incidence = subset(cases, cases[,3]=="Incidence")
-  death = subset(cases, cases[,3]=="Deaths")
-  df3_dense = rbind(df3_dense, 
-                        data.frame(time=t,
-                                   value=sum(incidence$value),
-                                   compartment="Incidence",
-                                   age_range="0-150"))
-  df3_dense = rbind(df3_dense,
-                        data.frame(time=t,
-                                   value=sum(death$value),
-                                   compartment="Deaths",
-                                   age_range="0-150"))
-}
-df3_dense$method = "Euler, dt=0.5 day, start/stop at discon"
+df <- rbind(df1, df3, df2)
 
-df <- rbind(df1, df3_dense, df2_dense)
-
-ggplot(subset(df, df[,3]=="Incidence"), 
-       aes(x = time, y = value, fill = method)) +
-  geom_bar(stat="identity", position = position_dodge()) +
-  labs(title="Incidence")
+ggplot(subset(df, df[,3]=="I"), 
+       aes(x = time, y = value)) +
+  geom_rect(aes(xmin=4.75,
+                xmax=9.75,
+                ymin = -Inf,
+                ymax = Inf), fill = 'yellow', alpha = 0.025) +
+  geom_line(aes(color=method)) +
+  labs(title="Infected compartment")
 
 ```
 
@@ -481,10 +449,9 @@ i2$method <- "tanh-smoothed profile"
 ggplot(rbind(i1, i2), aes(x=time, y=coverage, color=method)) +
   geom_line() +
   scale_color_brewer(palette = "Dark2") +
-  labs(x = "time (days)", y = "level of intervention") +
-  theme(text = element_text(size = 20))
+  labs(x = "time (days)", y = "level of intervention")
 ```
-Next, we compare the effects of the tanh smoothing on the simulated incidences.
+Next, we compare the effects of the tanh smoothing on the simulated incidences. The time period of vaccination is shaded in yellow.
 
 ```{r, fig.width=8, fig.height=5}
 model <- SEIRDV()
@@ -497,7 +464,7 @@ intervention_parameters(model) <- list(starts=c(4.75),
                                        tanh_slopes=1000)
 
 times <- seq(0, 20, by = 1)
-df1 <- run(model, times, solve_method="lsoda")$changes
+df1 <- run(model, times, solve_method="lsoda")$states
 df1$method = "Without tanh smoothing"
 
 
@@ -507,15 +474,19 @@ intervention_parameters(model) <- list(starts=c(4.75),
                                        tanh_slopes=2)
 
 times <- seq(0, 20, by = 1)
-df2 <- run(model, times, solve_method="lsoda")$changes
+df2 <- run(model, times, solve_method="lsoda")$states
 df2$method = "With tanh smoothing"
 
 df <- rbind(df1, df2)
 
-ggplot(subset(df, df[,3]=="Incidence"), 
-       aes(x = time, y = value, fill = method)) +
-  geom_bar(stat="identity", position = position_dodge()) +
-  labs(title="Incidence")
+ggplot(subset(df, df[,3]=="I"), 
+       aes(x = time, y = value)) +
+  geom_rect(aes(xmin=4.75,
+                xmax=9.75,
+                ymin = -Inf,
+                ymax = Inf), fill = 'yellow', alpha = 0.025) +
+  geom_line(aes(color=method)) +
+  labs(title="Infected compartment")
 ```
 Some slight differences are observed as a result of the tanh smoothing. Although the
 tanh smoothing does change the model behavior, in most applications of epidemiological
