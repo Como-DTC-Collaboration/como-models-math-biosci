@@ -1,0 +1,45 @@
+---
+title: "Interventions of age-structured SEIRD"
+output: rmarkdown::github_document
+bibliography: ../references.bib
+vignette: >
+  %\VignetteIndexEntry{Interventions of age-structured SEIRD}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(comomodels)
+library(deSolve)
+library(ggplot2)
+library(tidyverse)
+library(glue)
+```
+
+## Introduction
+
+In order to minimise the effects of an epidemic on the population, different types
+of measures can introduced to achieve this. These interventions can be either
+non-pharmaceutical in nature (e.g.\ lockdowns), or can dependent on new discoveries
+in the medical field such as the use of antiviral treatments or the implementation
+of vaccination campaigns.
+
+However, within a population not all individuals are equally vulnerable. Older age
+groups have overall in the case of the Covid epidemic a higher mortality rate than
+their younger counterparts. Since these interventions take some time from the moment
+they are introduced to produce a visible effect (e.g. in the case of vaccination,
+not all the population can be immunised in a very short time span), priority is
+hence given to those in the more vulnerable categories (e.g. vaccinate older people first).
+
+We can integrate these interventions in the basic age-structured SEIRD model
+framework through small alterations to the system of ODEs. In the case of vaccinations
