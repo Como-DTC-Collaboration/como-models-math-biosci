@@ -43,3 +43,54 @@ hence given to those in the more vulnerable categories (e.g. vaccinate older peo
 
 We can integrate these interventions in the basic age-structured SEIRD model
 framework through small alterations to the system of ODEs. In the case of vaccinations
+there are multiple ways in which this process can be represented. One option is
+to vaccinate only individuals that are susceptible (`S`); these would be the ideal
+scenario when the maximum efficacy of the vaccination campaign is achieved. The
+other more realistic option is to vaccinate individuals in both the susceptible
+and recovered (`R`) compartments; since we expect that only a small proportion of
+the population is located at any given time in the exposed (`E`) or infectives (`I`)
+compartments.
+
+Regardless of which scenario we are in, when this type of intervention is occurring,
+we assume individuals move to the vaccinated (`V`) compartment at a maximum rate $\nu$.
+Another very important feature of vaccination is the waning of immunity. In the
+population there are three distinct ways in which an individual can achieve it:
+by going through the disease (individuals in the `R` compartment), through vaccination
+(those in the `V` compartment), or through both (those in `VR`). Each different type
+of immunity will then have its own distinct decay rate (e.g. we can expect that
+individuals that have both recovered from Covid and received a subsequent vaccine
+will have longer-lasting immunity than someone who only had been infected): $\delta_R$,
+$\delta_V$ and $\delta_{VR}$ respectively.
+
+The system of ODEs that govern the virus transmission for the scenario in which
+vaccination is taken into account will become:
+
+$$\frac{\text{d}S_i}{\text{d}t} = -\beta S_i \Sigma_{j}C_{ij} I_j - \nu \text{Inter}_i(t) S_i + \delta_{V} V_i + \delta_{R} R_i + \delta_{VR} VR_i,$$
+$$\frac{\text{d}E_i}{\text{d}t} = \beta S_i \Sigma_{j}C_{ij} I_j -\kappa E_i,$$
+$$\frac{\text{d}I_i}{\text{d}t} = \kappa E_i - (\gamma + \mu) I_i,$$
+$$\frac{\text{d}R_i}{\text{d}t} = \gamma I_i - \delta_R R_i - \nu \text{Inter}_i(t) R_i,$$
+$$\frac{\text{d}V_i}{\text{d}t} = \nu \text{Inter}_i(t) S_i - \delta_V V_i$$
+$$\frac{\text{d}VR_i}{\text{d}t} = \nu \text{Inter}_i(t) R_i - \delta_{VR} VR_i$$
+
+where $\beta$, $\kappa$, $\gamma$, $\mu$, $\nu$, $\delta_V$, $\delta_R$ and $\delta_{VR}$ are
+positive parameters. The rate at which susceptible individuals are infected
+depends on the fraction of the population that is susceptible, the fraction of
+the population that is infectious, and the odds of an infectious individual
+infecting a susceptible individual, $\beta$. This is represented in the
+first terms on the right-hand side of $\text{d}S/ \text{d}t$ and $\text{d}E/ \text{d}t$.
+Exposed individuals become infectious at rate $\kappa$. $1/ \kappa$ is
+the incubation time of the virus, i.e. how many days after exposure the individual
+becomes infectious to others. Infectious individuals can either recover or die
+because of the disease. Infectious individuals recover in $1/ \gamma$
+days, thus individuals recover at rate $\gamma$. Similarly, infectious
+individuals die due to the infection after $1/ \mu$ days, making the death rate $\mu$.
+Susceptible individuals are vaccinated at a maximum rate $\nu$. Among those who are immune
+(recovered and vaccinated), people lose their immunity against the virus at different
+rates depending on what type of immunity they acquired: $\delta_V$ for those vaccinated,
+$\delta_R$ for those previously infected and $\delta_{VR}$ for those previously infected that
+received the vaccine after they recovered. $\text{Inter}(t)$ is the value
+at time t of the intervention protocol defined by the intervention parameters.
+
+## SEIRDVAge
+
+Below we will showcase
