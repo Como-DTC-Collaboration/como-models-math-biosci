@@ -195,7 +195,7 @@ all age groups.
 ```{r, fig.width=8, fig.height=5}
 # function to setup and run model for different delta_VR values
 run_SEIRDVAge <- function(interv_type) {
-  inits <- list(S0=pop_fraction*0.99, E0=rep(0, n_ages), I0=pop_fraction*0.01,
+  inits <- list(S0=pop_fraction*0.9999, E0=rep(0, n_ages), I0=pop_fraction*0.0001,
                 R0=rep(0, n_ages), V0=rep(0, n_ages), VR0=rep(0, n_ages),
                 D0=rep(0, n_ages))
   if(interv_type == 'Vaccination ON'){
@@ -204,7 +204,7 @@ run_SEIRDVAge <- function(interv_type) {
   else{
     nu=0
   }
-  interv <- list(list(starts=10,
+  interv <- list(list(starts=50,
                    stops=140,
                    coverages=1))
   params <- list(beta=1, kappa=0.9, gamma=0.5, mu=mu, nu=nu, delta_V=0,
@@ -263,7 +263,7 @@ immunity is assumed for this analysis.
 ```{r, fig.width=8, fig.height=5}
 # function to setup and run model for different delta_VR values
 run_SEIRDVAge <- function(interv_type) {
-  inits <- list(S0=pop_fraction*0.99, E0=rep(0, n_ages), I0=pop_fraction*0.01,
+  inits <- list(S0=pop_fraction*0.9999, E0=rep(0, n_ages), I0=pop_fraction*0.0001,
                 R0=rep(0, n_ages), V0=rep(0, n_ages), VR0=rep(0, n_ages),
                 D0=rep(0, n_ages))
   if(interv_type == 'Young first'){
@@ -337,7 +337,7 @@ vaccination.
 ```{r, fig.width=8, fig.height=5}
 # function to setup and run model for different delta_VR values
 run_SEIRDVAge <- function(interv_type) {
-  inits <- list(S0=pop_fraction*0.99, E0=rep(0, n_ages), I0=pop_fraction*0.01,
+  inits <- list(S0=pop_fraction*0.9999, E0=rep(0, n_ages), I0=pop_fraction*0.0001,
                 R0=rep(0, n_ages), V0=rep(0, n_ages), VR0=rep(0, n_ages),
                 D0=rep(0, n_ages))
   if(interv_type == 'WITH waning immunity'){
