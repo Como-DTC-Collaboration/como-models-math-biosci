@@ -82,7 +82,8 @@ of **vaccination** campaigns.
 
 However, within a population not all individuals are equally vulnerable. Older age
 groups have overall in the case of the Covid epidemic a higher mortality rate than
-their younger counterparts. Since these interventions take some time from the moment
+their younger counterparts ([Verity (2020)](https://www.medrxiv.org/content/early/2020/03/13/2020.03.09.20033357)).
+Since these interventions take some time from the moment
 they are introduced to produce a visible effect (e.g. in the case of vaccination,
 not all the population can be immunised in a very short time span), priority is
 hence given to those in the more vulnerable categories (e.g. vaccinate older people first).
@@ -95,6 +96,7 @@ scenario when the maximum efficacy of the vaccination campaign is achieved. The
 other more realistic option is to vaccinate individuals in both the susceptible
 and recovered (`R`) compartments; since we expect that only a small proportion of
 the population is located at any given time in the exposed (`E`) or infectives (`I`)
+compartments, no vaccination is considered to take place in either of these two 
 compartments.
 
 Regardless of which scenario we are in, when this type of intervention is occurring,
@@ -145,7 +147,7 @@ at time t of the intervention protocol defined by the intervention parameters.
 In the `SEIRDAge_interventions model`, recovered individuals ($R$) are no longer
 infectious, and no waning immunity is taken into accound. Any NPI strategies can be appied to multiple, 
 non-overlapping time periods. Within each intervention period, we allow fully customised setting of
-its corresponding *contact matrices** and the **transmisson parameter $\beta$**. 
+its corresponding **contact matrices** and the **transmisson parameter $\beta$**. 
 The ODEs describing how the five populations evolve over time are
 
 $$\frac{\text{d}S_i}{\text{d}t} = -\beta_i(t) S_i \Sigma_{j}C_{ij}(t) I_j,$$
@@ -236,6 +238,10 @@ my_model_SEIRDVAge <- SEIRDVAge(n_age_categories = n_ages,
                                 age_ranges = as.list(age_names))
 ```
 
+In the UK priority has been given to the older most vulnerable age groups for vaccination.
+Then as time progresses, more and more age groups are given the possibility to receive
+the vaccine. We replicate this behaviour with the example list of protocols
+for the initialised SEIRDVAge model.
 ```{r}
 interven <- vector(mode = "list", length = n_ages)
 
