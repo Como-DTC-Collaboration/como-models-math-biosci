@@ -38,7 +38,7 @@ applications, SEIRD differential equations do not admit analytical solutions.
 Instead, an approximation of the solution must be obtained using numerical
 methods.
 
-Epidemiological differential equations can be solved straightforwardly using simple fixed
+Epidemiological differential equations can be solved straightforwardly using a simple fixed
 time step solver such as the Euler method. In this notebook, we show that when
 such methods are employed without sufficient care in the selection of the time
 step, high error in the numerical solution may occur. We recommend more
@@ -76,7 +76,10 @@ over time—thus, as $\Delta t$ increases, this approximation becomes worse, and
 However, obtaining a satisfactory solution to the differential equation is not
 as simple as setting $\Delta t$ to some minuscule value, as decreasing the 
 value of $\Delta t$ increases the runtime of the solver, and for
-very small values of $\Delta t$, the runtime may be prohibitive.
+very small values of $\Delta t$, the runtime may be prohibitive. This is because solving the ODE on
+a time interval of length $T$ requires $T/\Delta t$ iterations of the Forward Euler method, each
+iteration requiring one evaluation of the function $g$—smaller values of $\Delta t$ thus 
+require more calculations of $g$, which are potentially slow.
 
 ### Effect of solver step size on solutions
 
@@ -106,7 +109,8 @@ dense_times <- seq(0, 3, by=0.1)
 
 
 # Solve using "euler" from deSolve
-# It uses the same times on which output is requested as the solver time points
+# This implementation of the method uses the same times on which output is
+# requested as the solver time points
 numerical_solution_sparse = ode(
   y=0,
   times=sparse_times,
@@ -268,15 +272,15 @@ the user specifies not a step size but a _tolerance_—some relative or absolute
 value which the local error in the approximate solution should not exceed. 
 Then, the solver algorithm selects the appropriate step size in order for the
 solution to meet this tolerance, using the theoretical error properties of the 
-solver and various heuristic techniques. Adaptive solvers are able to vary the step
+solver and various techniques for step size adaptation. Adaptive solvers are able to vary the step
 size over the course of the solve, selecting very small values only in those
 regions of time where this is necessary, such as where the solution is 
 changing rapidly over time, and otherwise increasing the step size
 to larger values. For this reason, they are much more efficient than fixed step
-solvers.
+solvers [@gautschi2012numerical].
 
 A wide variety of approaches to step size adaptation have been proposed. At 
-each step, these methods typically use some heuristic to estimate the error
+each step, these methods typically use some estimator of the error
 introduced at that time step, and then select roughly the largest possible step
 such that the threshold imposed by the user-supplied tolerance is not exceeded.
 
@@ -353,8 +357,7 @@ will be system dependent).
 
 Adaptive solvers are not infallible. On highly challenging differential
 equations, and when supplied with insufficient tolerances for the simulation or
-inference task at hand, they may be responsible for errors just as pernicious
-as those arising from fixed step solvers with too large step sizes. However,
+inference task at hand, they may cause problems for simulation and inference. However,
 for the simulation of compartmental epidemiological models such as those
 covered by the comomodels package, adaptive solvers such as LSODA (the default choice of solver in
 comomodels) generally perform better in terms of solution fidelity and speed.
@@ -366,7 +369,7 @@ Differential equations of the form
 
 $$\frac{df}{dt} = g(t, f)$$
 
-where $g$ is discontinuous present further challenges to both adaptive and fixed step size methods, whose error properties (and, for adaptive step size methods, the algorithms used to determine the time steps) typically assume differentiability of $g$.
+where $g$ is discontinuous present further challenges to both adaptive and fixed step size methods, whose error properties (and, for adaptive step size methods, the algorithms used to determine the time steps) typically make assumption such as differentiability and Lipschitz continuity of $g$.
 
 In the epidemiological models of the sort described by comomodels, discontinuities of $g$ in time are possible, most notably in the SEIRDV model where step function interventions may be used to specify the rate of vaccination.
 
@@ -380,8 +383,8 @@ The second approach is adopted by the SEIRDV model, as a tanh approximation to t
 First, we study the effects of a discontinuity in the vaccination rate in the 
 SEIRDV model without a tanh approximation. The vaccination rate is set to 0.15 from $t=4.75$ to $t=9.75$, and 0
 elsewhere. The model is solved using an Euler solver with a large time step 
-of 0.5 days, once without any consideration of the discontinuities and once
-with solver time steps inserted at the discontinuities (method 1 above). These 
+of 0.5 days, once without any consideration of the discontinuities (green curve) and once
+with solver time steps inserted at the discontinuities (blue curve, method 1 above). These 
 results are compared to an accurate (but potentially inefficient) solution
 obtained using the LSODA solver. The time period of vaccination is shaded in yellow.
 
@@ -422,7 +425,9 @@ ggplot(subset(df, df[,3]=="I"),
 ```
 
 Both Euler solvers experience large error due to the large step size. However,
-additional error caused by the discontinuous $\delta_V$ is apparent.
+additional error caused by the discontinuous $\delta_V$ is apparent, as, after the
+vaccination period begins, the Euler method without consideration of the discontinuity
+starts to deviate more drastically from the true solution.
 
 An alternative approach is to smooth the discontinuity. In comomodels SEIRDV,
 this can be performed by supplying an appropriate slope to the tanh function

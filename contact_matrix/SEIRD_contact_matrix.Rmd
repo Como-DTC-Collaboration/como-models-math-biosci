@@ -1,6 +1,7 @@
 ---
 title: "SEIRD contact matrix"
 output: rmarkdown::pdf_document
+bibliography: ../references.bib
 vignette: >
   %\VignetteIndexEntry{SEIRD_contact_matrix}
   %\VignetteEncoding{UTF-8}
@@ -32,8 +33,8 @@ groups. Given a contact matrix $C$, each element $C_{i,j}$ indicates the
 expected number of contacts someone from age group $i$ has per day with people
 from age group $j$.
 
-Comomodels includes estimates of the contact matrix for each country (Prem et 
-al., 2017; with full details available in the data documentation). Separate
+Comomodels includes estimates of the contact matrix for each country ([@prem2021projecting]; 
+with full details available in the data documentation). Separate
 matrices are available for contacts at home, work, school, and other. Below, we
 generate a plot of the contact matrices.
 
@@ -78,7 +79,8 @@ c_all %>%
   ggplot(aes(x=age_infector, y=age_infectee, fill=value)) +
   geom_tile() +
   scale_fill_viridis_c() +
-  facet_wrap(~type)
+  facet_wrap(~type) +
+  theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1))
 ```
 
 While it is possible to construct location-based transmission models, in this 
@@ -100,6 +102,11 @@ The purpose of the remainder of this notebook is to investigate the sensitivity
 of the outputs of the age-structured SEIRD model to the values of the contact
 matrix. Using bootstrap samples which represent the uncertainty in the contact
 matrix, we show significant uncertainty in the numbers of infected individuals.
+The bootstrap algorithm works by repeatedly selecting random samples (with
+replacement) of the survey respondents, and using the sample to calculate a
+particular contact matrix. Each sample yields a potentially different contact
+matrix, and this set of contact matrices reveals something of the uncertainty
+in its values.
 
 ## Accuracy of uncertainty estimates produced by the bootstrapping methods
 
@@ -186,9 +193,7 @@ The age-structured model takes another parameter $\mu$ which specifies the rate
 at which infected people enter the deceased compartment. For this parameter, we
 provide a vector giving a separate value for each age group. The values are
 selected to resemble the death rates of the COVID-19 outbreak in mainland China
-during January and February 2020 (Verity, R, et al. "Estimates of the severity
-of coronavirus disease 2019: a model-based analysis." The Lancet Infectious
-Diseases 20.6 (2020): 669-677).
+during January and February 2020 [@verity2020estimates].
 
 ```{r}
 mu=c(0.000016, 0.000016, 0.00007, 0.00007, 0.00031, 0.00031, 0.0026, 0.0026,
@@ -266,7 +271,7 @@ ggplot(quants_df, aes(x = time)) +
 
 The results show that the while the shape of the epidemic trajectory remains
 similar for all contact matrices in the bootstrap sample, the number of people
-in the I compartment exhibits significant uncertainty, particularly near the
+in the infected compartment exhibits significant uncertainty, particularly near the
 peak of the epidemic.
 
 Next, we perform the uncertainty analysis for the number in the recovered
