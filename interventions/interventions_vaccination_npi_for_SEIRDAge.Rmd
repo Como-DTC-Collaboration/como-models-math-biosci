@@ -336,9 +336,9 @@ at $t=50$ when the outbreak hasn't reached to steady state in the no-interventio
 
 ```{r}
 run_SEIRDAge_interventions_mult_intv <- function(beta_interventions, contact_matrix_interventions, interventions, n_interventions) {
-  inits <- list(S0=pop_fraction*0.99,
+  inits <- list(S0=pop_fraction*0.9999,
                 E0=rep(0, n_ages),
-                I0=pop_fraction*0.01,
+                I0=pop_fraction*0.0001,
                 R0=rep(0, n_ages),
                 D0=rep(0, n_ages)
                 )
@@ -418,7 +418,7 @@ immunity is assumed for this analysis.
 # SEIRDVAge
 # function to setup and run model for different delta_VR values
 run_SEIRDVAge <- function(interv_type) {
-  inits <- list(S0=pop_fraction*0.99, E0=rep(0, n_ages), I0=pop_fraction*0.01,
+  inits <- list(S0=pop_fraction*0.9995, E0=rep(0, n_ages), I0=pop_fraction*0.0005,
                 R0=rep(0, n_ages), V0=rep(0, n_ages), VR0=rep(0, n_ages),
                 D0=rep(0, n_ages))
   if(interv_type == 'Young first'){
@@ -541,11 +541,12 @@ decline more rapidly. However, vaccinating the younger population first makes th
 the epidemic wave quicker.
 
 Lastly, we assess the effect of waning immunity in the population in the case of
-vaccination.
+vaccination. The values for the rates of immunity loss for the three compartments
+`V`, `R` and `VR` are 
 ```{r, fig.width=8, fig.height=5}
 # function to setup and run model for different delta_VR values
 run_SEIRDVAge <- function(interv_type) {
-  inits <- list(S0=pop_fraction*0.99, E0=rep(0, n_ages), I0=pop_fraction*0.01,
+  inits <- list(S0=pop_fraction*0.9999, E0=rep(0, n_ages), I0=pop_fraction*0.0001,
                 R0=rep(0, n_ages), V0=rep(0, n_ages), VR0=rep(0, n_ages),
                 D0=rep(0, n_ages))
   if(interv_type == 'WITH waning immunity'){
