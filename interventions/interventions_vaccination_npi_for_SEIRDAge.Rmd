@@ -11,6 +11,11 @@ editor_options:
     wrap: 72
 ---
 
+
+### NOTES
+* Decrease gamma (second wave not shown when lockdown lifts)
+* Add integrated population size across all age groups
+
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
@@ -273,7 +278,18 @@ the mortality parameter $\mu$ is age-dependent as according to [Verity (2020)](h
 ```{r}
 mu <- c(0.000016, 0.000016, 0.00007, 0.00007, 0.00031, 0.00031, 0.0026, 0.0026,
      0.0048, 0.0048, 0.006, 0.006, 0.019, 0.019, 0.043, 0.043)
+
+data.frame(factor(age_names, level=age_names), mu) %>%
+  ggplot(aes(x=factor(age_names, level=age_names), y=mu)) +
+  geom_col() +
+  theme(text = element_text(size = 10))
+
+data.frame(factor(age_names, level=age_names), mu)
+
 ```
+The mortality rate increases as aging.
+
+
 
 We first compare the scenario of vaccination and lockdown with that when no intervention occurs.
 No waning immunity is considered and the same intervention protocol is applied to
@@ -293,7 +309,7 @@ run_SEIRDVAge <- function(interv_type) {
   interv <- list(list(starts=10,
                    stops=140,
                    coverages=1))
-  params <- list(beta=1, kappa=0.9, gamma=0.5, mu=mu, nu=nu, delta_V=0,
+  params <- list(beta=1, kappa=0.9, gamma=0.3, mu=mu, nu=nu, delta_V=0,
                  delta_R=0, delta_VR = 0)
   model <- SEIRDVAge(n_age_categories = n_ages,
                 contact_matrix = c_combined_wider,
@@ -301,20 +317,24 @@ run_SEIRDVAge <- function(interv_type) {
                 initial_conditions = inits,
                 transmission_parameters=params,
                 interventions = interv)
-  times <- seq(0, 200, by = 1)
+  times <- seq(0, 100, by = 1)
   out_df <- run(model, times)
-  out_df$changes
+  out_df
 }
 
 # run model across different intervention types
 interv_types <- c('No intervention', 'Vaccination ON')
 for(i in seq_along(interv_types)) {
   interv_type_temp <- interv_types[i]
-  temp <- run_SEIRDVAge(interv_type_temp) %>% mutate(interv_type=interv_type_temp)
-  if(i == 1)
-    result <- temp %>% mutate(interv_type=interv_type_temp)
-  else
-    result <- result %>% bind_rows(temp)
+  temp <- run_SEIRDVAge(interv_type_temp)
+  if(i == 1){
+    result1_changes <- temp$changes %>% mutate(interv_type=interv_type_temp)
+    result1_states <-  temp$states %>% mutate(interv_type=interv_type_temp)
+  }
+  else{
+    result1_changes <- result1_changes %>% bind_rows(temp$changes %>% mutate(interv_type=interv_type_temp))
+    result1_states <-  result1_states %>% bind_rows(temp$states %>% mutate(interv_type=interv_type_temp))
+  }
 }
 
 ```
@@ -344,7 +364,7 @@ run_SEIRDAge_interventions_mult_intv <- function(beta_interventions, contact_mat
                 )
   mu <- mu
   params <- list(beta_interventions = beta_interventions, beta = 1,
-               kappa = 0.9, gamma = 0.5, mu = mu)
+               kappa = 0.9, gamma = 0.3, mu = mu)
   model <- SEIRDAge_interventions(
     n_age_categories = n_ages,
     n_interventions = n_interventions,
@@ -355,7 +375,7 @@ run_SEIRDAge_interventions_mult_intv <- function(beta_interventions, contact_mat
     transmission_parameters=params,
     interventions = interventions
     )
-  times <- seq(0, 200, by = 1)
+  times <- seq(0, 100, by = 1)
   out_df <- run(model, times)
   out_df
 }
@@ -376,13 +396,14 @@ c_combined_wider_l <- c_home %>%
   combine_contact_matrices() %>% 
   combined_contact_matrices_wider()
 
-interventions <- list(list("starts"=25, "stops"=50, "coverages"=1))
+interventions <- list(list("starts"=10, "stops"=30, "coverages"=1))
 model_l <- run_SEIRDAge_interventions_mult_intv(beta_interventions = 0.65*1, 
                                                  contact_matrix_interventions = list(c_combined_wider_l),
                                                  interventions = interventions, 
                                                  n_interventions = 1)
 
-result <- result %>% bind_rows(model_l$changes %>% mutate(interv_type="lockdown ON"))
+result1_changes <- result1_changes %>% bind_rows(model_l$changes %>% mutate(interv_type="lockdown ON"))
+result1_states <- result1_states %>% bind_rows(model_l$states %>% mutate(interv_type="lockdown ON"))
 
 ```
 
@@ -391,22 +412,39 @@ Plot to show the results
 
 ```{r, fig.width=10, fig.height=5}
 # plot results
-result %>% 
+result1_changes %>% 
   filter(compartment=="Deaths") %>% 
   ggplot_results_by_compartment(labs_y = "fraction of the population \n that died per day") +
   facet_wrap(~interv_type)
 
-result %>% 
+result1_changes %>% 
   filter(compartment=="Incidence") %>% 
   ggplot_results_by_compartment(labs_y = "fraction of the population \n that gets infected per day") +
   facet_wrap(~interv_type)
+
+# plot results
+result1_states %>% 
+  filter(compartment %in% c("S","R")) %>% 
+  ggplot_results_by_compartment(text_size = 15) + 
+  facet_grid(compartment ~ interv_type) 
+
+result1_states %>% 
+  filter(compartment %in% c("I","E")) %>% 
+  ggplot_results_by_compartment(text_size = 15) + 
+  facet_grid(compartment ~ interv_type)
+
 ```
 As we can see, even for this very basic sort of intervention, we see a significant
 decrease in the height and width of the peak of the number of deaths and that of
 daily incidence for the most vulnerable age groups. This illustrates the idea that
 vaccines are effective overall in reducing the number of deaths and new cases once
-they are introduced; and a lockdown can rapidly inhibit the transmission of the virus
-and shorten the time period of the outbreak.
+they are introduced. 
+
+An early lockdown can rapidly inhibit the transmission
+and shorten the outbreak period. Although cases start to rise after the lockdown lifts,
+the secondary outbreak is milder in comparison with the scenario where no intervention is taken,
+However, early lockdown results in a slowed rate in gaining immunity, and therefore the epidemiogenesis
+would exist longer within the population.
 
 ## Prioritization of age groups
 
@@ -417,6 +455,7 @@ immunity is assumed for this analysis.
 ```{r, fig.width=8, fig.height=5}
 # SEIRDVAge
 # function to setup and run model for different delta_VR values
+# run model across different intervention types
 run_SEIRDVAge <- function(interv_type) {
   inits <- list(S0=pop_fraction*0.9995, E0=rep(0, n_ages), I0=pop_fraction*0.0005,
                 R0=rep(0, n_ages), V0=rep(0, n_ages), VR0=rep(0, n_ages),
@@ -426,12 +465,12 @@ run_SEIRDVAge <- function(interv_type) {
 
     for(i in 1:n_ages){
       if(is.element(i, 1:13)){
-        interv[[i]]$starts <- 30
-        interv[[i]]$stops <-  110
+        interv[[i]]$starts <- 10
+        interv[[i]]$stops <-  30
       }
       else{
-        interv[[i]]$starts <- 180
-        interv[[i]]$stops <-  200
+        interv[[i]]$starts <- 50
+        interv[[i]]$stops <-  70
       }
       interv[[i]]$coverages <- 1
     }
@@ -439,7 +478,7 @@ run_SEIRDVAge <- function(interv_type) {
   else{
     interv <- interven
   }
-  params <- list(beta=1, kappa=0.9, gamma=0.5, mu=mu, nu=0.4, delta_V=0,
+  params <- list(beta=1, kappa=0.9, gamma=0.3, mu=mu, nu=0.4, delta_V=0,
                  delta_R=0, delta_VR = 0)
   model <- SEIRDVAge(n_age_categories = n_ages,
                 contact_matrix = c_combined_wider,
@@ -447,21 +486,32 @@ run_SEIRDVAge <- function(interv_type) {
                 initial_conditions = inits,
                 transmission_parameters=params,
                 interventions = interv)
-  times <- seq(0, 200, by = 1)
+  times <- seq(0, 100, by = 1)
   out_df <- run(model, times)
-  out_df$changes
+  out_df
 }
 
-# run model across different intervention types
-interv_types <- c('Vaccination \n Young first', 'Vaccination \n Old first')
+
+# add "No intervention" baseline again for reference
+result2_changes <- result1_changes[result1_changes$interv_type=="No intervention",]
+result2_states <- result1_states[result1_states$interv_type=="No intervention",]
+# result2_changes$interv_starts <- c()
+# result2_changes$interv_stops <- c()
+
+interv_types <- c('Young first', 'Old first')
 for(i in seq_along(interv_types)) {
   interv_type_temp <- interv_types[i]
-  temp <- run_SEIRDVAge(interv_type_temp) %>% mutate(interv_type=interv_type_temp)
-  if(i == 1)
-    result <- temp %>% mutate(interv_type=interv_type_temp)
-  else
-    result <- result %>% bind_rows(temp)
+  temp <- run_SEIRDVAge(interv_type_temp)
+  # add intervention intervals
+  # temp$changes$interv_starts <- c(30, 180)
+  # temp$changes$interv_stops <- c(110, 200)
+  # temp$states$interv_starts <- c(30, 180)
+  # temp$states$interv_stops <- c(110, 200)
+  result2_changes <- result2_changes %>% bind_rows(temp$changes %>% mutate(interv_type=paste0("Vaccination\n", interv_type_temp)))
+  result2_states <-  result2_states %>% bind_rows(temp$states %>% mutate(interv_type=paste0("Vaccination\n", interv_type_temp)))
 }
+
+
 ```
 
 
@@ -503,8 +553,8 @@ c_combined_wider_npi_old <- c_home %>%
   combine_contact_matrices() %>% 
   combined_contact_matrices_wider()
 
-interventions <- list(list("starts"=30, "stops"=110, "coverages"=1),
-                      list("starts"=180, "stops"=200, "coverages"=1))
+interventions <- list(list("starts"=10, "stops"=30, "coverages"=1),
+                      list("starts"=50, "stops"=70, "coverages"=1))
 model_npi_young_first <- run_SEIRDAge_interventions_mult_intv(beta_interventions = c(0.65*1, 0.65*1),
                                                               contact_matrix_interventions = list(c_combined_wider_npi_young, c_combined_wider_npi_old),
                                                               interventions = interventions, 
@@ -516,29 +566,121 @@ model_npi_old_first <- run_SEIRDAge_interventions_mult_intv(beta_interventions =
                                                             n_interventions = 2)
 
 
-result <- result %>% 
+result2_changes <- result2_changes %>% 
   bind_rows(model_npi_young_first$changes %>% mutate(interv_type="NPI \n young first")) %>%
   bind_rows(model_npi_old_first$changes %>% mutate(interv_type="NPI \n old first"))
+
+result2_states <- result2_states %>% 
+  bind_rows(model_npi_young_first$states %>% mutate(interv_type="NPI \n young first")) %>%
+  bind_rows(model_npi_old_first$states %>% mutate(interv_type="NPI \n old first"))
+
+# add intervention intervals
+result2_changes[result2_changes$interv_type!="No intervention", "interv_starts"] <- c(10, 50)
+result2_changes[result2_changes$interv_type!="No intervention", "interv_stops"] <- c(30, 70)
+result2_states[result2_states$interv_type!="No intervention", "interv_starts"] <- c(10, 50)
+result2_states[result2_states$interv_type!="No intervention", "interv_stops"] <- c(30, 70)
 
 
 ```
 
 ```{r, fig.width=15, fig.height=5}
 # plot results
-result %>% 
+result2_changes %>% 
   filter(compartment=="Deaths") %>% 
-  ggplot_results_by_compartment(labs_y = "fraction of the population \n that died per day") +
-  facet_wrap(~interv_type)
+  ggplot_results_by_compartment(labs_y = "fraction of the population \n that died per day", text_size = 15) +
+  facet_wrap(~interv_type) +
+  geom_rect(aes_string(xmin = "interv_starts", xmax = "interv_stops", ymin = -Inf, ymax = Inf),
+             colour="red", fill=NA)
 
-result %>% 
+result2_changes %>% 
   filter(compartment=="Incidence") %>% 
-  ggplot_results_by_compartment(labs_y = "fraction of the population \n that gets infected per day") +
-  facet_grid(~interv_type)
+  ggplot_results_by_compartment(labs_y = "fraction of the population \n that gets infected per day", text_size = 15) +
+  facet_wrap(~interv_type) +
+  geom_rect(aes_string(xmin = "interv_starts", xmax = "interv_stops", ymin = -Inf, ymax = Inf),
+             colour="red", fill=NA)
+
+# plot results
+result2_states %>% 
+  filter(compartment %in% c("S","R")) %>% 
+  ggplot_results_by_compartment(text_size = 15) + 
+  facet_grid(compartment ~ interv_type) +
+  geom_rect(aes_string(xmin = "interv_starts", xmax = "interv_stops", ymin = -Inf, ymax = Inf),
+             colour="red", fill=NA)
+
+result2_states %>% 
+  filter(compartment %in% c("I","E")) %>% 
+  ggplot_results_by_compartment(text_size = 15) + 
+  facet_grid(compartment ~ interv_type) +
+  geom_rect(aes_string(xmin = "interv_starts", xmax = "interv_stops", ymin = -Inf, ymax = Inf),
+             colour="red", fill=NA)
 ```
-As we would expect, if we vaccinate or apply NIP to the old, more vulnerable age groups first, there
+The red rectangles indicate the time periods of interventions. As we would expect, if we apply vaccination or NPIs to the old, more vulnerable age groups first, there
 the number of deaths in the oled age groups is smaller than in the other case; the decline of deaths cases
 decline more rapidly. However, vaccinating the younger population first makes the peak descent more steep, terminating
 the epidemic wave quicker.
+
+
+We can also group all age groups together, take the mean values of population changes at each time step to get a general impression of the effect of age-prioritization:
+(SHALL WE CREATE A "YOUNG" AGE GROUP AND AN "OLD" AGE GROUP TO PLOT?)
+```{r, fig.width=15, fig.height=5}
+result2_changes %>% 
+  group_by(compartment, interv_type, time) %>%
+  summarise(value=mean(value), interv_starts=interv_starts, interv_stops=interv_stops) %>%
+  filter(compartment=="Deaths") %>% 
+  ggplot(aes_string(x="time", y="value")) +
+  geom_line() +
+  facet_wrap(~interv_type) +
+  scale_colour_viridis_d() +
+  labs(x = "time (days)", y = "fraction of the population \n that died per day") +
+  theme(text = element_text(size = 15))+
+  geom_rect(aes_string(xmin = "interv_starts", xmax = "interv_stops", ymin = -Inf, ymax = Inf),
+             colour="red", fill=NA)
+
+
+result2_changes %>% 
+  group_by(compartment, interv_type, time) %>%
+  summarise(value=mean(value), interv_starts=interv_starts, interv_stops=interv_stops) %>%
+  filter(compartment=="Incidence") %>% 
+  ggplot(aes_string(x="time", y="value")) +
+  geom_line() +
+  facet_wrap(~interv_type) +
+  scale_colour_viridis_d() +
+  labs(x = "time (days)", y = "fraction of the population \n that gets infected per day") +
+  theme(text = element_text(size = 15))+
+  geom_rect(aes_string(xmin = "interv_starts", xmax = "interv_stops", ymin = -Inf, ymax = Inf),
+             colour="red", fill=NA)
+
+
+result2_states %>% 
+  group_by(compartment, interv_type, time) %>%
+  summarise(value=mean(value), interv_starts=interv_starts, interv_stops=interv_stops) %>%
+  filter(compartment %in% c("S","R")) %>%  
+  ggplot(aes_string(x="time", y="value")) +
+  geom_line() +
+  facet_grid(compartment ~ interv_type) +
+  scale_colour_viridis_d() +
+  labs(x = "time (days)", y = "fraction of the population") +
+  theme(text = element_text(size = 15))+
+  geom_rect(aes_string(xmin = "interv_starts", xmax = "interv_stops", ymin = -Inf, ymax = Inf),
+             colour="red", fill=NA)
+
+
+result2_states %>% 
+  group_by(compartment, interv_type, time) %>%
+  summarise(value=mean(value), interv_starts=interv_starts, interv_stops=interv_stops) %>%
+  filter(compartment %in% c("E","I")) %>%  
+  ggplot(aes_string(x="time", y="value")) +
+  geom_line() +
+  facet_grid(compartment ~ interv_type) +
+  scale_colour_viridis_d() +
+  labs(x = "time (days)", y = "fraction of the population") +
+  theme(text = element_text(size = 15))+
+  geom_rect(aes_string(xmin = "interv_starts", xmax = "interv_stops", ymin = -Inf, ymax = Inf),
+             colour="red", fill=NA)
+
+```
+
+
 
 Lastly, we assess the effect of waning immunity in the population in the case of
 vaccination. The values for the rates of immunity loss for the three compartments
