@@ -684,7 +684,10 @@ result2_states %>%
 
 Lastly, we assess the effect of waning immunity in the population in the case of
 vaccination. The values for the rates of immunity loss for the three compartments
-`V`, `R` and `VR` are 
+`V`, `R` and `VR` are arbitrarily chosen to showcase the effect of losing immunity;
+we only assume that $\delta_{\textit{VR}}$ is smaller or equal than both $\delta_R$
+and $\delta_VR$ (for a realistic vaccine we expect that double immunisation is at
+least as good as any single type of immunisation). 
 ```{r, fig.width=8, fig.height=5}
 # function to setup and run model for different delta_VR values
 run_SEIRDVAge <- function(interv_type) {
