@@ -185,19 +185,35 @@ SEIR outputs will be studied.
 
 In this step, we run the age-structured SEIRD model once for each bootstrap
 sample of the contact matrix. We use fixed values for the other parameters of
-the model. In particular, we set $\beta=2$, $\kappa=1$, and $\gamma=1$, with
-an initial exposed group compartment equal to 0.1% of the population size, and
-all other individuals in the susceptible group.
+the model. We set an initial exposed group compartment equal to 0.1% of the
+population size, and all other individuals in the susceptible group.
 
-The age-structured model takes another parameter $\mu$ which specifies the rate
+The transmission parameters are set to resemble those of the COVID-19 outbreak.
+For the latency period, we assume 5.5 days [@xin2021estimating], and for the duration
+of infectiousness, 2 days (thus, fewer than 1% of individuals are infectious after
+10 days, in line with government guidelines [@stayathome2021]). To set the 
+transmission rate $\beta$, we choose the value such that the basic reproduction 
+number, $R_0$, is equal to 2.4 [@ferguson2020report]. The age-structured model also takes the parameter $\mu$ which specifies the rate
 at which infected people enter the deceased compartment. For this parameter, we
 provide a vector giving a separate value for each age group. The values are
 selected to resemble the death rates of the COVID-19 outbreak in mainland China
-during January and February 2020 [@verity2020estimates].
+during January and February 2020 [@verity2020estimates]. To obtain estimates of
+$\mu$ for each age group, we use data for the case fatality ratio (CFR).
+
+To calculate the recovery rate ($\gamma$) and the death rate ($\mu$) from the above quantities, we introduce $\eta$ giving the
+inverse of the average duration of infectiousness, and set:
+
+$$\mu = \eta \text{CFR}$$
+$$\gamma = \eta (1-\text{CFR})$$
+
+
 
 ```{r}
-mu=c(0.000016, 0.000016, 0.00007, 0.00007, 0.00031, 0.00031, 0.0026, 0.0026,
-     0.0048, 0.0048, 0.006, 0.006, 0.019, 0.019, 0.043, 0.043)
+cfr_vals = c(0.00260, 0.00260, 0.0148, 0.0148, 0.0600, 0.0600, 0.146, 0.146, 
+             0.295, 0.295, 1.25, 1.25, 3.99, 3.99, 8.61, 8.61)
+eta = 0.5
+gamma_age_vals <- eta * (1 - cfr_vals / 100)
+mu_age_vals <- eta * cfr_vals / 100
 ```
 
 ```{r}
@@ -216,7 +232,7 @@ for (i in 1:n_bootstrap){
                    age_ranges=as.list(age_names))
 
   # Set the other parameters of the model
-  transmission_parameters(model) <- list(b=2.0, k=1.0, g=1.0, mu=mu)
+  transmission_parameters(model) <- list(b=1.64, k=1/5.5, g=gamma_age_vals, mu=mu_age_vals)
   initial_conditions(model) <- list(S0=pop_fraction*0.999,
                                     E0=rep(0, n_ages),
                                     I0=pop_fraction*0.001,
@@ -308,4 +324,4 @@ Although younger people are more likely to be infected in this simulation,
 deaths occur mainly in the elderly, due to the age-structured mortality
 parameter $\mu$ described above. The different bootstrap samples of the contact
 matrix result in a wide range in the number of deaths, particularly in the
-75--80 age group.
+70--80 age groups.
