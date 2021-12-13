@@ -1,0 +1,402 @@
+---
+title: "Interventions of age-structured SEIRD"
+output: rmarkdown::github_document
+bibliography: ../references.bib
+vignette: >
+  %\VignetteIndexEntry{Interventions of age-structured SEIRD}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(comomodels)
+library(deSolve)
+library(ggplot2)
+library(tidyverse)
+library(glue)
+```
+
+## Introduction
+
+In order to minimise the effects of an epidemic on the population, different types
+of measures can introduced to achieve this. These interventions can be either
+non-pharmaceutical in nature (e.g.\ lockdowns), or can dependent on new discoveries
+in the medical field such as the use of antiviral treatments or the implementation
+of vaccination campaigns.
+
+However, within a population not all individuals are equally vulnerable. Older age
+groups have overall in the case of the Covid epidemic a higher mortality rate than
+their younger counterparts. Since these interventions take some time from the moment
+they are introduced to produce a visible effect (e.g. in the case of vaccination,
+not all the population can be immunised in a very short time span), priority is
+hence given to those in the more vulnerable categories (e.g. vaccinate older people first).
+
+We can integrate these interventions in the basic age-structured SEIRD model
+framework through small alterations to the system of ODEs. In the case of vaccinations
+there are multiple ways in which this process can be represented. One option is
+to vaccinate only individuals that are susceptible (`S`); these would be the ideal
+scenario when the maximum efficacy of the vaccination campaign is achieved. The
+other more realistic option is to vaccinate individuals in both the susceptible
+and recovered (`R`) compartments; since we expect that only a small proportion of
+the population is located at any given time in the exposed (`E`) or infectives (`I`)
+compartments.
+
+Regardless of which scenario we are in, when this type of intervention is occurring,
+we assume individuals move to the vaccinated (`V`) compartment at a maximum rate $\nu$.
+Another very important feature of vaccination is the waning of immunity. In the
+population there are three distinct ways in which an individual can achieve it:
+by going through the disease (individuals in the `R` compartment), through vaccination
+(those in the `V` compartment), or through both (those in `VR`). Each different type
+of immunity will then have its own distinct decay rate (e.g. we can expect that
+individuals that have both recovered from Covid and received a subsequent vaccine
+will have longer-lasting immunity than someone who only had been infected): $\delta_R$,
+$\delta_V$ and $\delta_{VR}$ respectively.
+
+The system of ODEs that govern the virus transmission for the scenario in which
+vaccination is taken into account will become:
+
+$$\frac{\text{d}S_i}{\text{d}t} = -\beta S_i \Sigma_{j}C_{ij} I_j - \nu \text{Inter}_i(t) S_i + \delta_{V} V_i + \delta_{R} R_i + \delta_{VR} VR_i,$$
+$$\frac{\text{d}E_i}{\text{d}t} = \beta S_i \Sigma_{j}C_{ij} I_j -\kappa E_i,$$
+$$\frac{\text{d}I_i}{\text{d}t} = \kappa E_i - (\gamma + \mu) I_i,$$
+$$\frac{\text{d}R_i}{\text{d}t} = \gamma I_i - \delta_R R_i - \nu \text{Inter}_i(t) R_i,$$
+$$\frac{\text{d}V_i}{\text{d}t} = \nu \text{Inter}_i(t) S_i - \delta_V V_i$$
+$$\frac{\text{d}VR_i}{\text{d}t} = \nu \text{Inter}_i(t) R_i - \delta_{VR} VR_i$$
+
+where $\beta$, $\kappa$, $\gamma$, $\mu$, $\nu$, $\delta_V$, $\delta_R$ and $\delta_{VR}$ are
+positive parameters. The rate at which susceptible individuals are infected
+depends on the fraction of the population that is susceptible, the fraction of
+the population that is infectious, and the odds of an infectious individual
+infecting a susceptible individual, $\beta$. This is represented in the
+first terms on the right-hand side of $\text{d}S/ \text{d}t$ and $\text{d}E/ \text{d}t$.
+Exposed individuals become infectious at rate $\kappa$. $1/ \kappa$ is
+the incubation time of the virus, i.e. how many days after exposure the individual
+becomes infectious to others. Infectious individuals can either recover or die
+because of the disease. Infectious individuals recover in $1/ \gamma$
+days, thus individuals recover at rate $\gamma$. Similarly, infectious
+individuals die due to the infection after $1/ \mu$ days, making the death rate $\mu$.
+Susceptible individuals are vaccinated at a maximum rate $\nu$. Among those who are immune
+(recovered and vaccinated), people lose their immunity against the virus at different
+rates depending on what type of immunity they acquired: $\delta_V$ for those vaccinated,
+$\delta_R$ for those previously infected and $\delta_{VR}$ for those previously infected that
+received the vaccine after they recovered. $\text{Inter}(t)$ is the value
+at time t of the intervention protocol defined by the intervention parameters.
+
+## SEIRDVAge
+
+Below we will showcase the effect of age-dependent vaccination on the overall dynamics
+of the epidemic. To do so, we will first instantiate an `SEIRDVAge` model, setup
+the contact data for the United Kingdom and vaccination intervention protocols for
+each age group.
+```{r}
+contact_home <- comomodels::contact_home
+contact_work <- comomodels::contact_work
+contact_school <- comomodels::contact_school
+contact_other <- comomodels::contact_other
+population <- comomodels::population
+
+# reformat matrices for plotting
+ages <- seq(0, 80, 5)
+age_names <- vector(length = 16)
+for(i in seq_along(age_names)) {
+  age_names[i] <- paste0(ages[i], "-", ages[i + 1])
+}
+format_matrix <- function(contact_matrix, age_names) {
+  colnames(contact_matrix) <- age_names
+  contact_matrix$age_infectee <- age_names
+  contact_matrix %>%
+    pivot_longer(all_of(age_names)) %>% 
+    rename(age_infector=name) %>% 
+    mutate(age_infector=fct_relevel(age_infector, age_names)) %>% 
+    mutate(age_infectee=fct_relevel(age_infectee, age_names))
+}
+c_home <- format_matrix(contact_home$"United Kingdom", age_names) %>% mutate(type="home")
+c_work <- format_matrix(contact_work$"United Kingdom", age_names) %>% mutate(type="work")
+c_school <- format_matrix(contact_school$"United Kingdom", age_names) %>% mutate(type="school")
+c_other <- format_matrix(contact_other$"United Kingdom", age_names) %>% mutate(type="other")
+c_all <- c_home %>%
+  bind_rows(c_work) %>% 
+  bind_rows(c_school) %>% 
+  bind_rows(c_other)
+
+c_combined <- c_all %>% 
+  group_by(age_infectee, age_infector) %>% 
+  summarise(value=sum(value))
+```
+
+```{r}
+# use demographic data to create normalised population fractions
+pops = population[population$country == 'United Kingdom', ]$pop
+pop_fraction = pops/sum(pops)
+## the contact matrix has an upper group of 80+, so we sum the remaining fractions beyond this point
+pop_fraction[16] = sum(pop_fraction[16:21])
+pop_fraction = pop_fraction[1:16]
+# reshape contact matrix into 16x16 form
+n_ages <- 16
+c_combined_wider <- c_combined %>% 
+  pivot_wider(id_cols = age_infectee, names_from = age_infector,
+              values_from=value) %>% 
+  ungroup() %>% 
+  select(-age_infectee) %>% 
+  as.matrix()
+
+# create model
+my_model <- SEIRDVAge(n_age_categories = n_ages,
+                 contact_matrix = c_combined_wider,
+                 age_ranges = as.list(age_names))
+
+```
+
+```{r}
+interven <- vector(mode = "list", length = n_ages)
+
+for(i in 1:n_ages){
+  if(is.element(i, 1:2)){
+    interven[[i]]$starts <- 150
+    interven[[i]]$stops <-  190
+  }
+  else if(is.element(i, 3:5)){
+    interven[[i]]$starts <- 120
+    interven[[i]]$stops <-  180
+  }
+  else if(is.element(i, 14:16)){
+    interven[[i]]$starts <- 30
+    interven[[i]]$stops <-  110
+  }
+  else{
+    interven[[i]]$starts <- 100-7*i
+    interven[[i]]$stops <-  190-7*i
+  }
+  interven[[i]]$coverages <- 1
+}
+
+interventions(my_model) <- interven
+```
+
+For results inspired by the COVID pandemic,
+the mortality parameter $\mu$ is age-dependent as according to [Verity (2020)](https://www.medrxiv.org/content/early/2020/03/13/2020.03.09.20033357):
+```{r}
+mu <- c(0.000016, 0.000016, 0.00007, 0.00007, 0.00031, 0.00031, 0.0026, 0.0026,
+     0.0048, 0.0048, 0.006, 0.006, 0.019, 0.019, 0.043, 0.043)
+```
+
+We first compare the scenario of vaccination with that when no vaccination occurs.
+No waning immunity is considered and the same vaccination protocol is applied to
+all age groups.
+```{r, fig.width=8, fig.height=5}
+# function to setup and run model for different delta_VR values
+run_SEIRDVAge <- function(interv_type) {
+  inits <- list(S0=pop_fraction*0.9999, E0=rep(0, n_ages), I0=pop_fraction*0.0001,
+                R0=rep(0, n_ages), V0=rep(0, n_ages), VR0=rep(0, n_ages),
+                D0=rep(0, n_ages))
+  if(interv_type == 'Vaccination ON'){
+    nu=1
+  }
+  else{
+    nu=0
+  }
+  interv <- list(list(starts=50,
+                   stops=140,
+                   coverages=1))
+  params <- list(beta=1, kappa=0.9, gamma=0.5, mu=mu, nu=nu, delta_V=0,
+                 delta_R=0, delta_VR = 0)
+  model <- SEIRDVAge(n_age_categories = n_ages,
+                contact_matrix = c_combined_wider,
+                age_ranges = as.list(age_names),
+                initial_conditions = inits,
+                transmission_parameters=params,
+                interventions = interv)
+  times <- seq(0, 200, by = 1)
+  out_df <- run(model, times)
+  out_df$changes
+}
+
+# run model across different intervention types
+interv_types <- c('Vaccination OFF', 'Vaccination ON')
+for(i in seq_along(interv_types)) {
+  interv_type_temp <- interv_types[i]
+  temp <- run_SEIRDVAge(interv_type_temp) %>% mutate(interv_type=interv_type_temp)
+  if(i == 1)
+    result <- temp %>% mutate(interv_type=interv_type_temp)
+  else
+    result <- result %>% bind_rows(temp)
+}
+
+# plot results
+result %>% 
+  filter(compartment=="Deaths") %>% 
+  ggplot(aes(x=time, y=value, color = age_range)) +
+  facet_wrap(~interv_type) +
+  geom_line() +
+  scale_colour_viridis_d() +
+  labs(x = "time (days)", y = "fraction of the population \n that died per day") +
+  theme(text = element_text(size = 20))
+
+result %>% 
+  filter(compartment=="Incidence") %>% 
+  ggplot(aes(x=time, y=value, color = age_range)) +
+  facet_wrap(~interv_type) +
+  geom_line() +
+  scale_colour_viridis_d() +
+  labs(x = "time (days)", y = "fraction of the population \n that gets infected per day") +
+  theme(text = element_text(size = 20)) 
+```
+As we can see, even for this very basic sort of intervention, we see a significant
+decrease in the height and width of the peak of the number of deaths and that of
+daily incidence for the most vulnerable age groups. This illustrates the idea that
+vaccines are effective overall in reducing the number of deaths and new cases once
+they are introduced.
+
+We analyse now the effect of placing priority on vaccinating the younger, more active
+age groups first compared to the more vulnerable age groups first. Again, no waning
+immunity is assumed for this analysis.
+
+```{r, fig.width=8, fig.height=5}
+# function to setup and run model for different delta_VR values
+run_SEIRDVAge <- function(interv_type) {
+  inits <- list(S0=pop_fraction*0.9999, E0=rep(0, n_ages), I0=pop_fraction*0.0001,
+                R0=rep(0, n_ages), V0=rep(0, n_ages), VR0=rep(0, n_ages),
+                D0=rep(0, n_ages))
+  if(interv_type == 'Young first'){
+    interv <- vector(mode = "list", length = n_ages)
+
+    for(i in 1:n_ages){
+      if(is.element(i, 1:13)){
+        interv[[i]]$starts <- 30
+        interv[[i]]$stops <-  110
+      }
+      else{
+        interv[[i]]$starts <- 180
+        interv[[i]]$stops <-  200
+      }
+      interv[[i]]$coverages <- 1
+    }
+  }
+  else{
+    interv <- interven
+  }
+  params <- list(beta=1, kappa=0.9, gamma=0.5, mu=mu, nu=0.4, delta_V=0,
+                 delta_R=0, delta_VR = 0)
+  model <- SEIRDVAge(n_age_categories = n_ages,
+                contact_matrix = c_combined_wider,
+                age_ranges = as.list(age_names),
+                initial_conditions = inits,
+                transmission_parameters=params,
+                interventions = interv)
+  times <- seq(0, 200, by = 1)
+  out_df <- run(model, times)
+  out_df$changes
+}
+
+# run model across different intervention types
+interv_types <- c('Young first', 'Old first')
+for(i in seq_along(interv_types)) {
+  interv_type_temp <- interv_types[i]
+  temp <- run_SEIRDVAge(interv_type_temp) %>% mutate(interv_type=interv_type_temp)
+  if(i == 1)
+    result <- temp %>% mutate(interv_type=interv_type_temp)
+  else
+    result <- result %>% bind_rows(temp)
+}
+
+# plot results
+result %>% 
+  filter(compartment=="Deaths") %>% 
+  ggplot(aes(x=time, y=value, color = age_range)) +
+  facet_wrap(~interv_type) +
+  geom_line() +
+  scale_colour_viridis_d() +
+  labs(x = "time (days)", y = "fraction of the population \n that died per day") +
+  theme(text = element_text(size = 20))
+
+result %>% 
+  filter(compartment=="Incidence") %>% 
+  ggplot(aes(x=time, y=value, color = age_range)) +
+  facet_wrap(~interv_type) +
+  geom_line() +
+  scale_colour_viridis_d() +
+  labs(x = "time (days)", y = "fraction of the population \n that gets infected per day") +
+  theme(text = element_text(size = 20)) 
+```
+As we would expect, if we vaccinate the old, more vulnerable age groups first, there
+the number of deaths in the oled age groups is smaller than in the other case. However,
+vaccinating the younger population first makes the peak descent more steep, terminating
+the epidemic wave quicker.
+
+Lastly, we assess the effect of waning immunity in the population in the case of
+vaccination.
+```{r, fig.width=8, fig.height=5}
+# function to setup and run model for different delta_VR values
+run_SEIRDVAge <- function(interv_type) {
+  inits <- list(S0=pop_fraction*0.9999, E0=rep(0, n_ages), I0=pop_fraction*0.0001,
+                R0=rep(0, n_ages), V0=rep(0, n_ages), VR0=rep(0, n_ages),
+                D0=rep(0, n_ages))
+  if(interv_type == 'WITH waning immunity'){
+    delta_V <- 0.1
+    delta_R <- 0.05
+    delta_VR <- 0.02
+  }
+  else{
+    delta_V <- 0
+    delta_R <- 0
+    delta_VR <- 0
+  }
+  params <- list(beta=1, kappa=0.9, gamma=0.5, mu=mu, nu=0.4, delta_V=delta_V,
+                 delta_R=delta_R, delta_VR = delta_VR)
+  model <- SEIRDVAge(n_age_categories = n_ages,
+                contact_matrix = c_combined_wider,
+                age_ranges = as.list(age_names),
+                initial_conditions = inits,
+                transmission_parameters=params,
+                interventions = interven)
+  times <- seq(0, 200, by = 1)
+  out_df <- run(model, times)
+  out_df$changes
+}
+
+# run model across different intervention types
+interv_types <- c('WITH waning immunity', 'NO waning immunity')
+for(i in seq_along(interv_types)) {
+  interv_type_temp <- interv_types[i]
+  temp <- run_SEIRDVAge(interv_type_temp) %>% mutate(interv_type=interv_type_temp)
+  if(i == 1)
+    result <- temp %>% mutate(interv_type=interv_type_temp)
+  else
+    result <- result %>% bind_rows(temp)
+}
+
+# plot results
+result %>% 
+  filter(compartment=="Deaths") %>% 
+  ggplot(aes(x=time, y=value, color = age_range)) +
+  facet_wrap(~interv_type) +
+  geom_line() +
+  scale_colour_viridis_d() +
+  labs(x = "time (days)", y = "fraction of the population \n that died per day") +
+  theme(text = element_text(size = 20))
+
+result %>% 
+  filter(compartment=="Incidence") %>% 
+  ggplot(aes(x=time, y=value, color = age_range)) +
+  facet_wrap(~interv_type) +
+  geom_line() +
+  scale_colour_viridis_d() +
+  labs(x = "time (days)", y = "fraction of the population \n that gets infected per day") +
+  theme(text = element_text(size = 20)) 
+```
+From these plots we see that introducing waning immunity in the model assumptions
+not only increases the amplitude of the peak for both the deaths and daily incidence,
+but also prolongs its length. This is due to the resupply of the susceptible compartments
+due to waning immunity. However, only one major wave is present in the case of
+vaccines, which as we will see in not necessary the case for when only non-pharmaceutical
+interventions are put in place. This mitigates the role of vaccines as a preventive
+measure as well a halting one for an epidemic. 
