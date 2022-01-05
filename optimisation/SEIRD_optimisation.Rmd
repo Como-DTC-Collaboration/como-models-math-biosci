@@ -27,12 +27,12 @@ library(tidyr)
 ### Choose between plotting cached data or run optimisation
 ```{r bool-cached-data}
 # TRUE to plot saved data, FALSE to run optimisation
-cached_bool <- FALSE
+cached_bool <-TRUE
 set.seed(0)
 ```
 
 # Introduction
-By fitting models of transmission dynamics to epidemiological data, we determine the combinations of model parameters which are most consistent with observations. Models of transmission dynamics, like the SEIRD model, are, however, highly nonlinear and may have many parameters. Because of these characteristics, many combinations of parameters may be equally able to explain the observed data. That is, the model may be unidentified given the observations at hand.
+By fitting models of transmission dynamics to epidemiological data, we determine the combinations of model parameters which are most consistent with observations. Models of transmission dynamics, like the SEIRD model, are, however, highly nonlinear and may have many parameters. Because of these characteristics, many combinations of parameters may equally explain the observed data. That is, the model may be unidentified given the observations at hand.
 
 Here, we illustrate how early on during an epidemic, many parameter sets of the SEIRD model are consistent with the data (here, we assume that only cases and deaths are observed). Because of this, it is important to practice caution when making forecasts of the resultant path of the epidemic. In particular, it is essential that the uncertainty in the model fit be taken into account when making projections. Here, we illustrate this using the range of optimisation results obtained when fitting to the same data, but alternative approaches to this uncertainty quantification include Bayesian inference.
 
@@ -85,7 +85,7 @@ ggplot() +
         legend.text = element_text(size = 10))
 ```
 
-To estimate the parameters, we attempt maximum likelihood estimation, where we first define a (log-)likelihood function that is to be maximised. Here, we assume a Poisson likelihood function, where the observed cases ($\hat{C}_t$) and deaths ($\hat{D}_t$) are assumed to be sampled from distributions with the true cases ($C_t$) and deaths ($D_t$) as the Poisson means:
+To estimate the parameters, we attempt maximum likelihood estimation, where we first define a log-likelihood function that is to be maximised. Here, we assume a Poisson likelihood function, where the observed cases ($\hat{C}_t$) and deaths ($\hat{D}_t$) are assumed to be sampled from distributions with the true cases ($C_t$) and deaths ($D_t$) as the Poisson means:
 
 $$ \hat{C}_t \sim \text{Pois}(C_t) $$
 $$ \hat{D}_t \sim \text{Pois}(D_t) $$
@@ -207,13 +207,13 @@ We now take those 20 optimisation parameter sets and use the SEIRD model to proj
 optimisation_plot(top_opt_df, London, time_length_scale = 5)
 ```
 
-The figure above shows that even when the optimisation fits the real data well during early stages of the pandemic, very different outcomes are predicted. Indeed, here, the maximum difference in peak values of all projections is more than $1 \times 10^5$ in both cases and deaths. This result indicates the importance of including measures of uncertainty when making projections over the eventual course of the epidemic. It also indicates that raw cases and deaths data (particularly at the start of the epidemic) does not provide sufficient information to constrain model estimates.
+The figure above shows that even when the optimisation fits the real data well during early stages of the pandemic, very different outcomes are predicted. Indeed, here, the maximum difference in peak values of all projections is more than $1 \times 10^5$ in both cases and deaths. This result indicates the importance of including measures of uncertainty when making projections over the eventual course of the epidemic. It also indicates that raw cases and deaths data (particularly at the start of the epidemic) do not provide sufficient information to constrain model estimates.
 
 # Synthetic data studies and profile likelihood
-Using real data, it is unclear whether the estimation results obtained are due to model misspecification or, indeed, the data contains insufficient information to identify the causative parameters. As such, we now perform a simulated data study: where we first generate simulated cases and deaths series using known parameter values. We then use these data to perform a profile likelihood analysis [@cole2014maximum] to assess the identifiability of the system. Briefly, a single profile likelihood value is the maximum likelihood value obtained when fixing a parameter of interest to a given value and optimising across the remaining parameters. When this exercise is repeated across a grid of such fixed values, a profile likelihood trace is obtained, and its shape can be used to assess the identifiability of the system.
+Using real data, it is unclear whether the estimation results obtained are due to model misspecification or, indeed, because the data contains insufficient information to identify the causative parameters. As such, we now perform a simulated data study: where we first generate simulated cases and deaths series using known parameter values. We then use these data to perform a profile likelihood analysis [@cole2014maximum] to assess the identifiability of the system. Briefly, a single profile likelihood value is the maximum likelihood value obtained when fixing a parameter of interest to a given value and optimising across the remaining parameters. When this exercise is repeated across a grid of such fixed values, a profile likelihood trace is obtained, and its shape can be used to assess the identifiability of the system.
 
 ## Generating synthetic data
-We first generate case and deaths series which qualitatively replicates the London COVID-19 data series which we investigate above. The initial conditions and transmission parameters used to generate the synthetic data are as follows 
+We first generate case and deaths series which qualitatively replicate the London COVID-19 data series which we investigate above. The initial conditions and transmission parameters used to generate the synthetic data are as follows: 
 
 $$ S(0) = 0.9999988 $$
 $$ E(0) = 1 \times 10^{-7} $$
@@ -222,7 +222,7 @@ $$ R(0) = 1 \times 10^{-6} $$
 $$ \beta = 0.91 $$
 $$ \kappa = 0.87 $$
 $$ \gamma = 0.53 $$
-$$ \mu = 0.097 $$
+$$ \mu = 0.097 $$.
 Here, we assume that we know the exact population size. The population size is set arbitrarily to $1 \times 10^4$.
 
 ```{r setup-model}
@@ -325,7 +325,7 @@ We start by illustrating an identified model by fixing all parameters at their k
 
 ### Setting ranges for profile likelihood
 
-Our first step is to set the grid ranges over which to scan for each of $\beta$ and $\gamma$. In both cases, the parameter ranges included the causative parameter values.
+Our first step is to set the grid ranges over which to scan for each of $\beta$ and $\gamma$. In both cases, the parameter ranges include the causative parameter values.
 
 ```{r profile-range}
 # Set interested parameters for profile likelihood
@@ -368,7 +368,7 @@ write.csv(profile_likelihood,
           row.names = FALSE)
 ```
 
-While working through the optimisations for different fixed values of parameter of interest, the previously optimised parameters were used as the initial guesses for the next round of optimisation.
+While working through the optimisations for different fixed values of the parameter of interest, the previously optimised parameters were used as the initial guesses for the next round of optimisation.
 
 ```{r, eval=cached_bool}
 # Load results
@@ -383,15 +383,15 @@ profilelikelihood_plot(profile_likelihood, profile_parameters)
 ```
 
 The figure above shows the log-likelihood value obtained by fixing, in turn, each parameter of interest and optimising the remaining transmission parameters. 
-The actual parameters value for each is indicated by the vertical line. 
+The true parameter value used to generate the data for each is indicated by the vertical lines. 
 The profile likelihood shows a single peak for both $\beta$ and $\gamma$, which implies that the parameters are identifiable when the SEIRD model has only two transmission parameters.
 
 However, we note that, due to the noise, there is a bias when using the maximum likelihood estimate away from the true values.
 
 ## Profile likelihood of all transmission parameters
 
-Here, we construct the profile likelihood by adding more parameters for optimisation.
-We will see how the amount of parameters affect the identifiability of the transmission parameters of the SEIRD model.
+Here, we construct the profile likelihood by adding more unknown parameters into the optimisation.
+We will see how the number of parameters affects the identifiability of the transmission parameters of the SEIRD model.
 The same procedure is repeated with all the transmission parameters (instead of two out of the four): $\beta$, $\kappa$, $\gamma$ and $\mu$.
 
 ### Setting ranges for profile likelihood
@@ -503,8 +503,8 @@ The figure above shows the profile likelihood of $\beta$, $\kappa$, $\gamma$ and
 With more data points, the identifiability of $\gamma$ improves. $\gamma$ and $\mu$ are thought to be identifiable up to a certain range, the log-likelihood values decreases when both parameters are smaller than a certain value. 
 
 # Conclusion
-We showed that there are identifiability issues with the parameters in the SEIRD model by showing that multiple sets of parameters can fit the SEIRD model to the pre-lockdown London COVID-19 data. This lack of model identification led to a diversity of forecasted scenarios for cases and deaths and illustrates the importance of quantifying modelled uncertainty when using transmission dynamics models to inform policy.
+We have shown that there are identifiability issues with the parameters in the SEIRD model by showing that multiple sets of parameters can fit the SEIRD model to the pre-lockdown London COVID-19 data. This lack of model identification led to a diversity of forecasted scenarios for cases and deaths and illustrates the importance of quantifying modelled uncertainty when using transmission dynamics models to inform policy.
 
-Additionally, we show how simulated data and the profile likelihood method can be used to assess the identifiability of models in absence of real data. Since such analyses can highlight the insufficiency of data for estimating model parameters, we argue these approaches should be pursued as precursors to performing inference on real data.
+Additionally, we have shown how simulated data and the profile likelihood method can be used to assess the identifiability of models in the absence of real data. Since such analyses can highlight the insufficiency of data for estimating model parameters, we argue these approaches should be pursued as precursors to performing inference on real data.
 
 # References

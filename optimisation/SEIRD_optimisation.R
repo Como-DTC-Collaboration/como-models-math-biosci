@@ -275,6 +275,7 @@ profilelikelihood_plot <- function(profile_likelihood, profile_parameters){
   profile_plot <- vector('list', length(profile_parameters))
   for (i in 1:length(profile_parameters)){
     plot_data <- profile_likelihood %>% filter(parameter == profile_parameters[i])
+  	print(plot_data)
     profile_plot[[i]] <- ggplot(plot_data, aes(x = fixed_value,
                                                y = likelihood_value)) +
       geom_vline(xintercept = as.numeric(simulating_para[profile_parameters[i]])) +
