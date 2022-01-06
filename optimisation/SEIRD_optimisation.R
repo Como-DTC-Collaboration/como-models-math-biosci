@@ -201,7 +201,7 @@ LogLikelihoodFn <- function(parameters, model=SEIRD(), inc_numbers=0, death_numb
   incidence_likelihood <- sum(inc_numbers * logIncidence - data_wide$Incidence[-1])
   logDeaths <- log(data_wide$Deaths[-1])
   death_likelihood <- sum(death_numbers * logDeaths - data_wide$Deaths[-1])
-  
+ 
   (incidence_likelihood + death_likelihood)
 }
 
@@ -266,17 +266,18 @@ profilelikelihood_opt <- function(profile_parameters, range_transmission,
 
 # Create function to plot the profile likelihood
 profilelikelihood_plot <- function(profile_likelihood, profile_parameters){
-  
+
   # Get minimum and maximum of all log-likelihood values
   ymin <- floor(min(profile_likelihood$likelihood_value))
   ymax <- ceiling(max(profile_likelihood$likelihood_value))
-  
+  # ymin <- 475
+  # ymax <- 477
+
   # Plot the log-likelihood values for each parameters of interest
   profile_plot <- vector('list', length(profile_parameters))
   for (i in 1:length(profile_parameters)){
     plot_data <- profile_likelihood %>% filter(parameter == profile_parameters[i])
-  	print(plot_data)
-    profile_plot[[i]] <- ggplot(plot_data, aes(x = fixed_value,
+  	profile_plot[[i]] <- ggplot(plot_data, aes(x = fixed_value,
                                                y = likelihood_value)) +
       geom_vline(xintercept = as.numeric(simulating_para[profile_parameters[i]])) +
       geom_point() + ylim(ymin, ymax) +

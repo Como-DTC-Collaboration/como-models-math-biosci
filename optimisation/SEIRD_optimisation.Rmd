@@ -27,7 +27,7 @@ library(tidyr)
 ### Choose between plotting cached data or run optimisation
 ```{r bool-cached-data}
 # TRUE to plot saved data, FALSE to run optimisation
-cached_bool <-TRUE
+cached_bool <-FALSE
 set.seed(0)
 ```
 
@@ -94,12 +94,14 @@ Note, that the above implicitly assumes that there is likely no systematic under
 
 Our overall likelihood function is assumed to be the product of the likelihoods from the cases and deaths: implicitly, this assumes that these data are independent conditional on the model parameters.
 
-We now define our log-likelihood function in R. The optimisation of the SEIRD model to the data is done only on the transmission parameters, which are the transition rates between the compartments, and not on the initial conditions. This is sufficient to describe the identifiability problem of the model. The initial conditions are fixed at previously optimised values, which are
+We now define our log-likelihood function in R. The optimisation of the SEIRD model to the data is done only on the transmission parameters, which are the transition rates between the compartments, and not on the initial conditions. This is sufficient to describe the identifiability problem of the model. The initial conditions are fixed at values, which are
 
 $$ S(0) = 0.99799985 $$
 $$ E(0) = 1 \times 10^{-7} $$
 $$ I(0) = 5 \times 10^{-8} $$
 $$ R(0) = 0.002 $$
+
+These values are chosen from the optimisation of the SEIRD model on all parameters, including initial conditions, which is done in the background, without showing in this vignette.
 
 ```{r}
 init_cond <- list(S0=0.99799985,
@@ -464,7 +466,10 @@ profilelikelihood_plot(profile_likelihood, profile_parameters)
 ```
 
 These results show that all transmission parameters are not identifiable since there is not a clear maximum to the profile likelihood in each case, especially for $\beta$ and $\kappa$, the profile likelihood is flat.
-However, $\mu$ has better identifiability than the remaining parameters.
+However, in the case of $\mu$, its profile likelihood is discontinuous.
+When the parameter $\mu$ is fixed, the log-likelihood value by fitting the number of deaths is fully determined.
+Since $\beta$, $\kappa$ and $\gamma$ are free to be optimised, we assume that the log-likelihood value from number of cases is the optimum.
+Thus, the discontinuity in the profile likelihood of $\mu$ could come from the noise added to the death data.  
 
 ## Profile likelihood with more information
 
@@ -500,7 +505,7 @@ profilelikelihood_plot(profile_likelihood, profile_parameters)
 ```
 
 The figure above shows the profile likelihood of $\beta$, $\kappa$, $\gamma$ and $\mu$, with the same notations as the previous figure. 
-With more data points, the identifiability of $\gamma$ improves. $\gamma$ and $\mu$ are thought to be identifiable up to a certain range, the log-likelihood values decreases when both parameters are smaller than a certain value. 
+With more data points, the identifiability of $\gamma$ improves. $\gamma$ and $\mu$ are not identifiable for values larger than 0.4 for $\gamma$ and 0.07 for $\mu$. However, the log-likelihood values decrease when both parameters are smaller than the given values, observed from the graph. 
 
 # Conclusion
 We have shown that there are identifiability issues with the parameters in the SEIRD model by showing that multiple sets of parameters can fit the SEIRD model to the pre-lockdown London COVID-19 data. This lack of model identification led to a diversity of forecasted scenarios for cases and deaths and illustrates the importance of quantifying modelled uncertainty when using transmission dynamics models to inform policy.
