@@ -27,7 +27,7 @@ library(tidyr)
 ### Choose between plotting cached data or run optimisation
 ```{r bool-cached-data}
 # TRUE to plot saved data, FALSE to run optimisation
-cached_bool <-FALSE
+cached_bool <-TRUE
 set.seed(0)
 ```
 
