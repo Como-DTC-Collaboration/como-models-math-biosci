@@ -195,9 +195,9 @@ data <- gather(plotting_data, key = "parameters",
 # Plot initial guesses and optimised parameters from optimisation
 # in box plot format
 para_boxplot <- ggplot(data, aes(x = parameters, y = value)) +
-    geom_boxplot() +
-	labs(y = "parameter value") +
-	theme(text = element_text(size = 15))
+  geom_boxplot() +
+  labs(y = "parameter value") +
+  theme(text = element_text(size = 15))
 
 # Create box plot for log-likelihood values of all optimisations 
 plotting_data <- subset(optimised_para, select = c(obj_fn))
@@ -207,8 +207,8 @@ data <- gather(plotting_data, key = "likelihood_value",
                value = "value", -c(index))
 objfn_boxplot <- ggplot(data, aes(x = likelihood_value, y = value)) +
   geom_boxplot() +
-	labs(x = " ", y = "log-likelihood value") +
-	theme(text = element_text(size = 12))
+  labs(x = " ", y = "log-likelihood value") +
+  theme(text = element_text(size = 12))
 grid.arrange(para_boxplot, objfn_boxplot, widths = c(3, 1))
 ```
 
@@ -592,10 +592,10 @@ for (kappa in kappa_range) {
 	parameters <- list(kappa = kappa, gamma = gamma) 
 	ll_value <- LogLikelihoodFn(parameters, model = SEIRD(),
 	                            inc_numbers = testing_data_mid$IncNoise,
-								              death_numbers = testing_data_mid$DeathNoise,
-								              profile_parameters = profile_parameters,
-								              fixed_parameter = FALSE,
-								              fixed_parameter_value = 0)
+	                            death_numbers = testing_data_mid$DeathNoise,
+	                            profile_parameters = profile_parameters,
+	                            fixed_parameter = FALSE,
+	                            fixed_parameter_value = 0)
 			loglikelihood_values[
 			  nrow(loglikelihood_values) + 1,] <- c(kappa, gamma, ll_value)
 			}}
