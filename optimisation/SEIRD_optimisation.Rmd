@@ -72,7 +72,7 @@ We first plot the daily incidences and deaths in London over our chosen period, 
 
 ```{r london-data, fig.height = 5, fig.width = 7}
 # Load London COVID-19 data
-df_london = read.csv('data/London_data.csv', header=TRUE)
+df_london = read.csv('data/London_data.csv', header = TRUE)
 
 # Extracting cases and deaths and renaming columns
 cases_deaths_name_london = c('newCasesBySpecimenDate',
@@ -87,18 +87,18 @@ population_size <- 9002488
 
 # Extract COVID-19 data prior to lockdown
 London = df_london[42:82, 1:2] # Start of lockdown (23/03/2020) is 83rd day
-rownames(London) = seq(length=nrow(London))
-London$time <- seq(length=nrow(London))
+rownames(London) = seq(length = nrow(London))
+London$time <- seq(length = nrow(London))
 
 # Visualise the data
 ggplot() +
-  geom_line(data=London, aes(x=time, y=DailyCases, color="Incidence")) +
-  geom_line(data=London, aes(x=time, y=DailyDeaths, color="Deaths")) +
-  scale_color_manual(name="",
-					 values=c("Incidence"="red", "Deaths"="blue")) +
-  labs(x="time (days)", y="number of count") +
-  theme(text=element_text(size=12), legend.position="bottom",
-        legend.text=element_text(size=10))
+  geom_line(data = London, aes(x = time, y = DailyCases, color = "Incidence")) +
+  geom_line(data = London, aes(x = time, y = DailyDeaths, color = "Deaths")) +
+  scale_color_manual(name = "",
+					 values = c("Incidence" = "red", "Deaths" = "blue")) +
+  labs(x = "time (days)", y = "number of count") +
+  theme(text = element_text(size = 12), legend.position = "bottom",
+        legend.text = element_text(size = 10))
 ```
 
 To estimate the parameters, we attempt maximum likelihood estimation, where we first define a log-likelihood function that is to be maximised.
@@ -123,10 +123,10 @@ $$ S(0) = 0.99799985, E(0) = 1 \times 10^{-7}, I(0) = 5 \times 10^{-8}, R(0) = 0
 These values are chosen from the optimisation of the SEIRD model on all parameters, including initial conditions, which is done without showing in this vignette.
 
 ```{r}
-init_cond <- list(S0=0.99799985,
-                  E0=1e-7,
-                  I0=5e-8,
-                  R0=0.002)
+init_cond <- list(S0 = 0.99799985,
+                  E0 = 1e-7,
+                  I0 = 5e-8,
+                  R0 = 0.002)
 ```
 
 In an aim to determine the maximum likelihood estimates, we use a Nelder-Mead optimisation approach [@nelder1965simplex].
@@ -141,17 +141,17 @@ constraint_ci <- c(rep(0, 4))
 repeat_num <- 100
 
 # Run optimisation 100 times with different initial transmission parameters
-for (repeats in 1:repeat_num){
-    trans_params_guess <- runif(4, min=0, max=1)    
+for (repeats in 1:repeat_num) {
+    trans_params_guess <- runif(4, min = 0, max = 1)    
     result <- constrOptim(trans_params_guess,
 						  RealData_LogLikelihoodFn, 'NULL', constraint_ui,
-						  constraint_ci, method="Nelder-Mead",
-						  control=list(fnscale=-1, reltol=1e-4),
-						  inc_numbers=London$DailyCases, 
-                		  death_numbers=London$DailyDeaths)
+						  constraint_ci, method = "Nelder-Mead",
+						  control = list(fnscale = -1, reltol = 1e-4),
+						  inc_numbers = London$DailyCases,
+						  death_numbers = London$DailyDeaths)
 
 	# Create data frame to save initial guesses and optimised parameters
-    if (repeats == 1){
+    if (repeats == 1) {
     optimised_para <- data.frame("beta_opt" = result$par[1],
                                  "kappa_opt" = result$par[2],
                                  "gamma_opt" = result$par[3],
@@ -164,7 +164,7 @@ for (repeats in 1:repeat_num){
 
 # save optimised parameters
 write.csv(optimised_para, "data/London_parameters_100_optimisations.csv",
-		  row.names=FALSE)
+		  row.names = FALSE)
 ```
 
 ```{r, eval=cached_bool}
@@ -185,30 +185,31 @@ To further illustrate this, we now plot the estimated parameter values and log-l
 ```{r, fig.height = 5, fig.width = 7}
 # Organise data for box plot
 plotting_data <- subset(optimised_para,
-                        select=c(beta_opt, kappa_opt, gamma_opt, mu_opt))
+                        select = c(beta_opt, kappa_opt, gamma_opt, mu_opt))
 colnames(plotting_data) <- c("beta", "kappa", "gamma", "mu")
 plotting_data$index <- seq(1, repeat_num)
 plotting_data$legend <- rep("optimised", repeat_num)
-data <- gather(plotting_data, key="parameters",
-               value="value", -c(index, legend))
-# 
+data <- gather(plotting_data, key = "parameters",
+               value = "value", -c(index, legend))
+
 # Plot initial guesses and optimised parameters from optimisation
 # in box plot format
-para_boxplot <- ggplot(data, aes(x=parameters, y=value)) +
+para_boxplot <- ggplot(data, aes(x = parameters, y = value)) +
     geom_boxplot() +
 	labs(y = "parameter value") +
-	theme(text = element_text(size=15))
+	theme(text = element_text(size = 15))
 
 # Create box plot for log-likelihood values of all optimisations 
-plotting_data <- subset(optimised_para, select=c(obj_fn))
+plotting_data <- subset(optimised_para, select = c(obj_fn))
 colnames(plotting_data) <- c("objective fn")
 plotting_data$index <- seq(1, repeat_num)
-data <- gather(plotting_data, key="likelihood_value", value="value", -c(index))
-objfn_boxplot <- ggplot(data, aes(x=likelihood_value, y=value)) +
-    geom_boxplot() +
-	labs(x=" ", y="log-likelihood value") +
-	theme(text=element_text(size=12))
-grid.arrange(para_boxplot, objfn_boxplot, widths=c(3, 1))
+data <- gather(plotting_data, key = "likelihood_value",
+               value = "value", -c(index))
+objfn_boxplot <- ggplot(data, aes(x = likelihood_value, y = value)) +
+  geom_boxplot() +
+	labs(x = " ", y = "log-likelihood value") +
+	theme(text = element_text(size = 12))
+grid.arrange(para_boxplot, objfn_boxplot, widths = c(3, 1))
 ```
 
 This illustrates that some of the optimisation runs clearly became stuck at local minima, which is especially likely to occur when the objective function has only mild curvature near the maximum.
@@ -232,7 +233,7 @@ We now take those 20 optimisation parameter sets and use the SEIRD model to proj
 
 ```{r, fig.height = 5, fig.width = 7}
 # Plot prediction of the epidemic
-optimisation_plot(top_opt_df, London, time_length_scale=5)
+optimisation_plot(top_opt_df, London, time_length_scale = 5)
 ```
 
 The figure above shows that even when the optimisation fits the real data well during early stages of the pandemic, very different outcomes are predicted.
@@ -262,13 +263,15 @@ initial_conditions_name <- c("S0", "E0", "I0", "R0")
 
 # Set up SEIRD model
 model <- SEIRD()
-simulating_para <- list(beta=9.1e-1, kappa=8.7e-1, gamma=5.3e-1, mu=9.7e-2,
-						S0=9.999988e-1, E0=1e-7, I0=1e-7, R0=1e-6)
+simulating_para <- list(beta = 9.1e-1, kappa = 8.7e-1,
+                        gamma = 5.3e-1, mu = 9.7e-2,
+                        S0 = 9.999988e-1, E0 = 1e-7,
+                        I0 = 1e-7, R0 = 1e-6)
 transmission_parameters(model) <- simulating_para[transmission_para_name]
 initial_conditions(model) <- simulating_para[initial_conditions_name]
 
 # Simulate the model to create synthetic data
-times <- seq(0, 150, by=1)
+times <- seq(0, 150, by = 1)
 out_df <- run(model, times)
 ```
 
@@ -289,7 +292,7 @@ testing_data$Incidence <- testing_data$Incidence * population_size
 testing_data$Deaths <- testing_data$Deaths * population_size
 inc_noise <- rpois(1, testing_data$Incidence[1])
 death_noise <- rpois(1, testing_data$Deaths[1])
-for (i in 2:length(testing_data$Incidence)){
+for (i in 2:length(testing_data$Incidence)) {
   inc_rand <- rpois(1, testing_data$Incidence[i])
   inc_noise <- c(inc_noise, inc_rand)
   
@@ -301,7 +304,7 @@ testing_data$DeathNoise <- death_noise
 testing_data <- testing_data[-1,]
 
 # save results
-write.csv(testing_data, "data/synthetic_data.csv", row.names=FALSE)
+write.csv(testing_data, "data/synthetic_data.csv", row.names = FALSE)
 ```
 ```{r, eval=cached_bool}
 # load saved data
@@ -312,15 +315,15 @@ testing_data <- read.csv("data/synthetic_data.csv")
 ```{r plot-synthetic-data, fig.height = 5, fig.width = 7, fig.fullwidth=TRUE}
 # Plot synthetic data
 ggplot() +
-  geom_line(data=testing_data,
-            aes(x=time, y=DeathNoise, color="Deaths")) +
-  geom_line(data=testing_data,
-            aes(x=time, y=IncNoise, color="Incidence")) +
-  scale_color_manual(name="",
-                     values=c("Incidence"="red", "Deaths"="blue")) +
-  labs(x="time (days)", y="number of cases") +
-  theme(text=element_text(size=12), legend.position="bottom",
-              legend.text=element_text(size=10))
+  geom_line(data = testing_data,
+            aes(x = time, y = DeathNoise, color = "Deaths")) +
+  geom_line(data = testing_data,
+            aes(x = time, y = IncNoise, color = "Incidence")) +
+  scale_color_manual(name = "",
+                     values = c("Incidence" = "red", "Deaths" = "blue")) +
+  labs(x = "time (days)", y = "number of cases") +
+  theme(text = element_text(size = 12), legend.position = "bottom",
+        legend.text = element_text(size = 10))
 ```
 
 The figure above shows the synthetic data simulated for the full pandemic.
@@ -336,15 +339,15 @@ testing_data_short <- testing_data[
 
 # Visualise data
 ggplot() +
-  geom_line(data=testing_data_short,
-            aes(x=time, y=DeathNoise, color="Deaths")) +
-  geom_line(data=testing_data_short,
-            aes(x=time, y=IncNoise, color="Incidence")) +
-  scale_color_manual(name="Cases",
-                     values=c("Incidence"="red", "Deaths"="blue")) +
-  labs(x="time (days)", y="number of cases") +
-  theme(text=element_text(size=12), legend.position="bottom",
-              legend.text=element_text(size=10))
+  geom_line(data = testing_data_short,
+            aes(x = time, y = DeathNoise, color = "Deaths")) +
+  geom_line(data = testing_data_short,
+            aes(x = time, y = IncNoise, color = "Incidence")) +
+  scale_color_manual(name = "Cases",
+                     values = c("Incidence" = "red", "Deaths" = "blue")) +
+  labs(x = "time (days)", y = "number of cases") +
+  theme(text = element_text(size = 12), legend.position = "bottom",
+        legend.text = element_text(size = 10))
 ```
 
 We now use a Poisson log-likelihood to fit the SEIRD model to the simulated data.
@@ -366,20 +369,24 @@ simulating_para[c("S0", "E0", "I0", "R0")] <- out_df$states[
 profile_parameters <- c('beta', 'gamma')
 
 # Set range of values for interested parameters
-beta_range <- c(seq(simulating_para$beta, max(0.01, simulating_para$beta - 0.5),
-					by=-0.02),
-				seq(simulating_para$beta, simulating_para$beta + 0.5, by=0.02))
+beta_range <- c(seq(simulating_para$beta,
+                    max(0.01, simulating_para$beta - 0.5),
+                    by = -0.02),
+                seq(simulating_para$beta,
+                    simulating_para$beta + 0.5,
+                    by = 0.02))
 gamma_range <- c(seq(simulating_para$gamma,
                      max(0.01, simulating_para$gamma - 0.5),
-                     by=-0.02),
+                     by = -0.02),
                  seq(simulating_para$gamma,
-                     simulating_para$gamma + 0.5, by=0.02))
+                     simulating_para$gamma + 0.5,
+                     by = 0.02))
 
 # Create a data frame for the range of values
-range_transmission <- data.frame(parameter=rep('beta', length(beta_range)),
-								 fixed_value=beta_range)
+range_transmission <- data.frame(parameter = rep('beta', length(beta_range)),
+                                 fixed_value = beta_range)
 range_transmission <- rbind(range_transmission, data.frame(
-  parameter=rep('gamma', length(gamma_range)), fixed_value=gamma_range))
+  parameter = rep('gamma', length(gamma_range)), fixed_value = gamma_range))
 ```
 
 We now run the optimisations required for our profile likelihood determination.
@@ -395,7 +402,7 @@ profile_likelihood <- profilelikelihood_opt(profile_parameters,
 # Save results
 write.csv(profile_likelihood,
           "data/synthetic_halftrend_2param_profilelikelihood.csv",
-          row.names=FALSE)
+          row.names = FALSE)
 ```
 
 While working through the optimisations for different fixed values of the parameter of interest, the previously optimised parameters were used as the initial guesses for the next round of optimisation.
@@ -429,36 +436,38 @@ profile_parameters <- c('beta', 'kappa', 'gamma', 'mu')
 # Set range of values for interested parameters
 beta_range <- c(seq(simulating_para$beta,
                     max(0.01, simulating_para$beta - 0.3),
-                    by=-0.02),
+                    by = -0.02),
                 seq(simulating_para$beta,
                     simulating_para$beta + 0.3,
-                    by=0.02))
+                    by = 0.02))
 kappa_range <- c(seq(simulating_para$kappa,
                      max(0.01, simulating_para$kappa - 0.3),
-                     by=-0.02),
+                     by = -0.02),
                  seq(simulating_para$kappa,
                      simulating_para$kappa + 0.3,
-                     by=0.02))
+                     by = 0.02))
 gamma_range <- c(seq(simulating_para$gamma,
                      max(0.01, simulating_para$gamma - 0.3),
-                     by=-0.02),
+                     by = -0.02),
                  seq(simulating_para$gamma,
                      simulating_para$gamma + 0.3,
-                     by=0.02))
+                     by = 0.02))
 mu_range <- c(seq(simulating_para$mu,
                   max(0.01, simulating_para$mu - 0.1),
-                  by=-0.005),
-              seq(simulating_para$mu, simulating_para$mu + 0.1, by=0.005))
+                  by = -0.005),
+              seq(simulating_para$mu,
+                  simulating_para$mu + 0.1,
+                  by = 0.005))
 
 # Create a data frame for the range of values
-range_transmission <- data.frame(parameter=rep('beta', length(beta_range)),
-                                 fixed_value=beta_range)
+range_transmission <- data.frame(parameter = rep('beta', length(beta_range)),
+                                 fixed_value = beta_range)
 range_transmission <- rbind(range_transmission, data.frame(
-  parameter=rep('kappa', length(kappa_range)), fixed_value=kappa_range))
+  parameter = rep('kappa', length(kappa_range)), fixed_value = kappa_range))
 range_transmission <- rbind(range_transmission, data.frame(
-  parameter=rep('gamma', length(gamma_range)), fixed_value=gamma_range))
+  parameter = rep('gamma', length(gamma_range)), fixed_value = gamma_range))
 range_transmission <- rbind(range_transmission, data.frame(
-  parameter=rep('mu', length(mu_range)), fixed_value=mu_range))
+  parameter = rep('mu', length(mu_range)), fixed_value = mu_range))
 ```
 
 ```{r profile-opt2, eval=!cached_bool, error=TRUE, message=FALSE, warning=FALSE}
@@ -467,11 +476,11 @@ profile_likelihood <- profilelikelihood_opt(profile_parameters,
                                             range_transmission,
                                             LogLikelihoodFn,
                                             testing_data_short,
-                                            reltol=1e-6)
+                                            reltol = 1e-6)
 # Save results
 write.csv(profile_likelihood,
           "data/synthetic_halftrend_4param_profilelikelihood.csv",
-          row.names=FALSE)
+          row.names = FALSE)
 ```
 
 ```{r, eval=cached_bool}
@@ -498,17 +507,17 @@ Here, we show an example by constructing the profile likelihood using synthetic 
 To be exact, the time points taken start from the first incidence to day 150, an arbitrary value when the simulated data ends.
 
 ```{r profile-opt-4param, eval=!cached_bool, error=TRUE, message=FALSE, warning=FALSE}
-testing_data_mid <- testing_data[-(1:first_nonzero_ind-1), ,drop=FALSE]
+testing_data_mid <- testing_data[-(1:first_nonzero_ind - 1), ,drop = FALSE]
 profile_likelihood <- profilelikelihood_opt(profile_parameters,
                                             range_transmission,
                                             LogLikelihoodFn,
                                             testing_data_mid,
-                                            reltol=1e-6)
+                                            reltol = 1e-6)
 
 # Save results
 write.csv(profile_likelihood,
           "data/synthetic_fulltrend_4param_profilelikelihood.csv",
-          row.names=FALSE)
+          row.names = FALSE)
 ```
 
 ```{r, eval=cached_bool}
@@ -535,12 +544,12 @@ To test the hypothesis, we plot profile likelihood for $\beta$, $\gamma$ and $\m
 profile_parameters <- c('beta', 'gamma', 'mu')
 
 # Create a data frame for the range of values
-range_transmission <- data.frame(parameter=rep('beta', length(beta_range)),
-                                 fixed_value=beta_range)
+range_transmission <- data.frame(parameter = rep('beta', length(beta_range)),
+                                 fixed_value = beta_range)
 range_transmission <- rbind(range_transmission, data.frame(
-  parameter=rep('gamma', length(gamma_range)), fixed_value=gamma_range))
+  parameter = rep('gamma', length(gamma_range)), fixed_value = gamma_range))
 range_transmission <- rbind(range_transmission, data.frame(
-  parameter=rep('mu', length(mu_range)), fixed_value=mu_range))
+  parameter = rep('mu', length(mu_range)), fixed_value = mu_range))
 ```
 
 ```{r profile-opt3, eval=!cached_bool, error=TRUE, message=FALSE, warning=FALSE}
@@ -549,11 +558,11 @@ profile_likelihood <- profilelikelihood_opt(profile_parameters,
                                             range_transmission,
                                             LogLikelihoodFn,
                                             testing_data_mid,
-                                            reltol=1e-6)
+                                            reltol = 1e-6)
 # Save results
 write.csv(profile_likelihood,
           "data/synthetic_fulltrend_3param_profilelikelihood.csv",
-          row.names=FALSE)
+          row.names = FALSE)
 ```
 
 ```{r, eval=cached_bool}
@@ -571,37 +580,37 @@ As shown in the profile likelihood graph, the parameters are identifiable.
 
 ```{r, fig.height = 5, fig.width = 7}
 profile_parameters <- c('kappa', 'gamma')
-kappa_range <- seq(0.2, 1.92, by=0.02)
-gamma_range <- seq(0.2, 1.34, by=0.02)
+kappa_range <- seq(0.2, 1.92, by = 0.02)
+gamma_range <- seq(0.2, 1.34, by = 0.02)
 true_parameters <- data.frame(simulating_para[profile_parameters])
-loglikelihood_values <- data.frame(kappa=double(), gamma=double(),
-								   likelihood_value=double())
+loglikelihood_values <- data.frame(kappa = double(), gamma = double(),
+                                   likelihood_value = double())
 
 # Calculate log-likelihood values for a range of kappa and gamma values
-for (kappa in kappa_range){
-  for (gamma in gamma_range){
-	parameters <- list(kappa=kappa, gamma=gamma) 
-	ll_value <- LogLikelihoodFn(parameters, model=SEIRD(),
-								inc_numbers=testing_data_mid$IncNoise,
-								death_numbers=testing_data_mid$DeathNoise,
-								profile_parameters=profile_parameters,
-								fixed_parameter=FALSE,
-								fixed_parameter_value=0)
+for (kappa in kappa_range) {
+  for (gamma in gamma_range) {
+	parameters <- list(kappa = kappa, gamma = gamma) 
+	ll_value <- LogLikelihoodFn(parameters, model = SEIRD(),
+	                            inc_numbers = testing_data_mid$IncNoise,
+								              death_numbers = testing_data_mid$DeathNoise,
+								              profile_parameters = profile_parameters,
+								              fixed_parameter = FALSE,
+								              fixed_parameter_value = 0)
 			loglikelihood_values[
 			  nrow(loglikelihood_values) + 1,] <- c(kappa, gamma, ll_value)
 			}}
 
 # Plot log-likelihood values for a range of kappa and gamma values
 ggplot() +
-  geom_tile(data=loglikelihood_values,
-			aes(x=kappa, y=gamma, fill=likelihood_value)) + 
+  geom_tile(data = loglikelihood_values,
+			aes(x = kappa, y = gamma, fill = likelihood_value)) + 
   scale_fill_viridis_c() +
-  geom_point(data=true_parameters,
-			 aes(x=kappa, y=gamma, size="true value")) +
-  labs(fill="log-likelihood value", size="") +
-  scale_size_manual(values=c(3)) +
-  theme(text=element_text(size=12),
-		legend.text=element_text(size=10))
+  geom_point(data = true_parameters,
+			 aes(x = kappa, y = gamma, size = "true value")) +
+  labs(fill = "log-likelihood value", size = "") +
+  scale_size_manual(values = c(3)) +
+  theme(text = element_text(size = 12),
+		legend.text = element_text(size = 10))
 ```
 
 The graph shows the log-likelihood values for different combinations of $\kappa$ and $\gamma$, with the black point indicating the true values of the parameters.
