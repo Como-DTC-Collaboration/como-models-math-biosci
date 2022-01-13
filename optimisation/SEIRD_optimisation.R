@@ -161,7 +161,7 @@ optimisation_plot <- function(parameters_df, data, time_length_scale=1){
     scale_color_manual(name = "",
                        values = c("Estimated Incidence" = "#FF6699",
                                   "Estimated Deaths" = "#66CCFF")) +
-    labs(x = "time (days)", y = "number of cases") +
+    labs(x = "time (days)", y = "number of counts") +
     ylim(0, ymax) +
     theme(text = element_text(size = 12), legend.position = "bottom",
           legend.text = element_text(size = 10))
@@ -201,7 +201,7 @@ LogLikelihoodFn <- function(parameters, model=SEIRD(), inc_numbers=0, death_numb
   incidence_likelihood <- sum(inc_numbers * logIncidence - data_wide$Incidence[-1])
   logDeaths <- log(data_wide$Deaths[-1])
   death_likelihood <- sum(death_numbers * logDeaths - data_wide$Deaths[-1])
- 
+
   (incidence_likelihood + death_likelihood)
 }
 
@@ -270,8 +270,6 @@ profilelikelihood_plot <- function(profile_likelihood, profile_parameters){
   # Get minimum and maximum of all log-likelihood values
   ymin <- floor(min(profile_likelihood$likelihood_value))
   ymax <- ceiling(max(profile_likelihood$likelihood_value))
-  # ymin <- 475
-  # ymax <- 477
 
   # Plot the log-likelihood values for each parameters of interest
   profile_plot <- vector('list', length(profile_parameters))
@@ -285,6 +283,6 @@ profilelikelihood_plot <- function(profile_likelihood, profile_parameters){
       ggtitle(profile_parameters[i]) +
       theme(text = element_text(size = 12))
   }
-  grid.arrange(grobs=profile_plot, nrow = length(profile_parameters)%/%2, ncol = 2)
+  grid.arrange(grobs=profile_plot, nrow = ceiling(length(profile_parameters)/2), ncol = 2)
 }
 
