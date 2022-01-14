@@ -14,16 +14,13 @@ editor_options:
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  warning = FALSE,
+  message = FALSE
 )
 ```
 
-```{r setup}
-library(comomodels)
-library(tidyverse)
-library(ggplot2)
-library(socialmixr)
-```
+
 
 ## Introduction
 
@@ -37,6 +34,13 @@ Comomodels includes estimates of the contact matrix for each country ([@prem2021
 with full details available in the data documentation). Separate
 matrices are available for contacts at home, work, school, and other. Below, we
 generate a plot of the contact matrices.
+
+```{r setup}
+library(comomodels)
+library(tidyverse)
+library(ggplot2)
+library(socialmixr)
+```
 
 ```{r}
 contact_home <- comomodels::contact_home
@@ -198,22 +202,32 @@ at which infected people enter the deceased compartment. For this parameter, we
 provide a vector giving a separate value for each age group. The values are
 selected to resemble the death rates of the COVID-19 outbreak in mainland China
 during January and February 2020 [@verity2020estimates]. To obtain estimates of
-$\mu$ for each age group, we use data for the case fatality ratio (CFR).
+$\mu$ for each age group, we use data for the case fatality ratio (IFR).
 
 To calculate the recovery rate ($\gamma$) and the death rate ($\mu$) from the above quantities, we introduce $\eta$ giving the
 inverse of the average duration of infectiousness, and set:
 
-$$\mu = \eta \text{CFR}$$
-$$\gamma = \eta (1-\text{CFR})$$
+$$\mu = \eta \text{IFR}$$
+$$\gamma = \eta (1-\text{IFR})$$
 
 
 
 ```{r}
-cfr_vals = c(0.00260, 0.00260, 0.0148, 0.0148, 0.0600, 0.0600, 0.146, 0.146, 
-             0.295, 0.295, 1.25, 1.25, 3.99, 3.99, 8.61, 8.61)
-eta = 0.5
-gamma_age_vals <- eta * (1 - cfr_vals / 100)
-mu_age_vals <- eta * cfr_vals / 100
+# Age structured parameters
+mu <- covid_transmission_parameters(is_age_structured=TRUE)[4]$mu$mu[1:8]
+mu_age_vals <- rep(mu, each=2)
+
+gamma <- covid_transmission_parameters(is_age_structured=TRUE)[3]$gamma$gamma[1:8]
+gamma_age_vals <- rep(gamma, each=2)
+
+# Set the non-age structured parameters
+parameters <- covid_transmission_parameters()
+kappa <- parameters$kappa
+gamma <- parameters$gamma
+mu <- parameters$mu
+R0_target <- parameters$R0
+beta <- (mu + gamma) * R0_target
+
 ```
 
 ```{r}
@@ -232,13 +246,13 @@ for (i in 1:n_bootstrap){
                    age_ranges=as.list(age_names))
 
   # Set the other parameters of the model
-  transmission_parameters(model) <- list(b=1.64, k=1/5.5, g=gamma_age_vals, mu=mu_age_vals)
+  transmission_parameters(model) <- list(b=beta, k=kappa, g=gamma_age_vals, mu=mu_age_vals)
   initial_conditions(model) <- list(S0=pop_fraction*0.999,
                                     E0=rep(0, n_ages),
                                     I0=pop_fraction*0.001,
                                     R0=rep(0, n_ages),
                                     D0=rep(0, n_ages))
-  res <- run(model, time=seq(0, 100, by=1))
+  res <- run(model, time=seq(0, 365, by=1))
   
   # Get states from results
   res <- res[['states']]
@@ -264,7 +278,7 @@ data <- I_data$value * sum(pops)
 dim(data) <- c(length(I_data$time)/n_bootstrap, n_bootstrap)
 quants <- t(apply(data, 1, quantile, probs=c(0.05, 0.5, 0.95), na.rm=TRUE))
 quants_df <- data.frame(quants)
-quants_df["time"] <- seq(0, 100, by=1)
+quants_df["time"] <- seq(0, 365, by=1)
 
 ggplot(quants_df, aes(x = time)) +
   geom_line(aes(y=X50.)) +
@@ -276,7 +290,7 @@ data <- I_data$value * sum(pops)
 dim(data) <- c(length(I_data$time)/n_bootstrap, n_bootstrap)
 quants <- t(apply(data, 1, quantile, probs=c(0.05, 0.5, 0.95), na.rm=TRUE))
 quants_df <- data.frame(quants)
-quants_df["time"] <- seq(0, 100, by=1)
+quants_df["time"] <- seq(0, 365, by=1)
 
 ggplot(quants_df, aes(x = time)) +
   geom_line(aes(y=X50.)) +
@@ -296,7 +310,7 @@ compartment at the final time point, for all age groups.
 
 ```{r, fig.width=7, fig.height=5}
 
-data <- filter(all_results, compartment=="R", time==100.0)
+data <- filter(all_results, compartment=="R", time==365.0)
 
 ggplot(data, aes(x=age_range, y=value/pop_fraction), l) +
   geom_boxplot() +
@@ -312,7 +326,7 @@ Finally, we study the effects on death.
 
 ```{r, fig.width=7, fig.height=5}
 
-data <- filter(all_results, compartment=="D", time==100.0)
+data <- filter(all_results, compartment=="D", time==365.0)
 
 ggplot(data, aes(x=age_range, y=value/pop_fraction), l) +
   geom_boxplot() +
@@ -325,3 +339,7 @@ deaths occur mainly in the elderly, due to the age-structured mortality
 parameter $\mu$ described above. The different bootstrap samples of the contact
 matrix result in a wide range in the number of deaths, particularly in the
 70--80 age groups.
+
+
+
+## References

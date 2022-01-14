@@ -14,17 +14,13 @@ editor_options:
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  warning = FALSE,
+  message = FALSE
 )
 ```
 
-```{r setup}
-library(comomodels)
-library(deSolve)
-library(ggplot2)
-library(tidyverse)
-library(glue)
-```
+
 
 ## Introduction
 
@@ -48,6 +44,15 @@ implemented in the [comomodels](https://github.com/Como-DTC-Collaboration/como-m
 This notebook begins with a review of a simple differential equation solver on 
 a toy problem with a known solution. Then, it demonstrates the importance of 
 accurate ODE solvers for comomodel's SEIRD model.
+
+
+```{r setup}
+library(comomodels)
+library(deSolve)
+library(ggplot2)
+library(tidyverse)
+library(glue)
+```
 
 ## Numerical solution of a differential equation using forward Euler
 
@@ -83,24 +88,36 @@ require more calculations of $g$, which are potentially slow.
 
 ### Effect of solver step size on solutions
 
-Before looking at the epidemiological model, we examine the numerical error
-arising from the solver step size in a simple model for which we have an
-analytical solution. The differential equation is:
+We examine the numerical arising from the solver step size in the SIR model. The 
+proportions of susceptible (S), infected (I), and recovered (R) are modelled according to the differential equations:
 
-$$\frac{df}{dt} = 2t;\;\;\;\; f(t=0)=0$$
+$$\frac{dS}{dt} = -\beta S I;$$
 
-The analytical solution is $f(t) = t^2$. We solve this differential equation on
+$$\frac{dI}{dt} = \beta S I - \gamma I;$$
+and 
+$$\frac{dR}{dt} = \gamma I. $$
+
+We focus on the $I$ compartment and consider the early phase of an epidemic where $S>> I$.
+Under these conditions, $S$ is approximately constant and we have for $dI/dt$:
+
+$$\frac{dI}{dt} = (\beta - \gamma) S I;\;\;\;\; I(t=0) = I_0$$
+
+whose analytical solution if $S$ were constant is:
+
+$$I(t) = I_0 \exp((\beta - \gamma) S t) $$
+
+We set $I_0 = 0.001$ and $(\beta - \gamma) S = 1$. We solve this differential equation on
 the interval from $t=0$ to $t=3$ with two different choices of the time step
 ($\Delta t=1$ and $\Delta t=0.1$). We compare the obtained approximate
 solutions with the known true solution.
 
 ```{r, fig.width=7, fig.height=5}
 rhs <- function(t, state, params){
-  list(2*t)
+  list(state)
 }
 
 true_solution <- function(t){
-  t ^ 2
+  0.001 * exp(t)
 }
 
 
@@ -112,7 +129,7 @@ dense_times <- seq(0, 3, by=0.1)
 # This implementation of the method uses the same times on which output is
 # requested as the solver time points
 numerical_solution_sparse = ode(
-  y=0,
+  y=0.001,
   times=sparse_times,
   parms=NULL,
   func=rhs,
@@ -120,7 +137,7 @@ numerical_solution_sparse = ode(
 )
 
 numerical_solution_dense = ode(
-  y=0,
+  y=0.001,
   times=dense_times,
   parms=NULL,
   func=rhs,
@@ -153,7 +170,10 @@ ggplot() +
              aes(x=t, y=f, color=method),
              show.legend=F) +
   geom_line(data=rbind(results_sparse, results_dense, results_true),
-            aes(x=t, y=f, color=method))
+            aes(x=t, y=f, color=method)) +
+  scale_color_brewer(palette = "Dark2") + 
+  scale_fill_brewer(palette="Dark2") +
+  ylab('I(t)')
 ```
 
 We observe that the large step size of $\Delta t=1$ causes significant
@@ -172,6 +192,16 @@ values and initial conditions.
 ```{r}
 model <- comomodels::SEIRD()
 transmission_parameters(model) <- list(beta=1.0, kappa=0.9, gamma=0.5, mu=0.1)
+
+# Covid delta parameters
+R0 <- 5
+ifr <- 0.0066
+kappa <- 1 / 3.7
+gamma <- 1/7 * (1-ifr)
+mu <- 1/7 * ifr
+beta <- (mu + gamma) * R0
+
+transmission_parameters(model) <- list(beta=beta, kappa=kappa, gamma=gamma, mu=mu)
 initial_conditions(model) <- list(S0=0.999, E0=0, I0=0.001, R0=0)
 ```
 
@@ -223,8 +253,9 @@ all_changes <- rbind(changes_dense, changes_daily)
 ggplot(subset(all_changes, all_changes[,3]=="Deaths" | all_changes[,3]=="Incidence"), 
        aes(x = time, y = value, fill = method)) +
   geom_bar(stat="identity", position = position_dodge()) +
-  labs(title="Deaths and Incidence") +
-  facet_wrap(~ all_changes[,3])
+  facet_wrap(~ all_changes[,3], scales="free") +
+  scale_color_brewer(palette = "Dark2") + 
+  scale_fill_brewer(palette="Dark2")
 ```
 These results indicate that for the SEIRD model with these parameters, a daily
 step size is much too large to obtain accurate results. The daily step size
@@ -344,8 +375,9 @@ all_changes <- rbind(changes_dense, changes_adapt)
 ggplot(subset(all_changes, all_changes[,3]=="Deaths" | all_changes[,3]=="Incidence"), 
        aes(x = time, y = value, fill = method)) +
   geom_bar(stat="identity", position = position_dodge()) +
-  labs(title="Deaths and Incidence") +
-  facet_wrap(~ all_changes[,3])
+  facet_wrap(~ all_changes[,3], scales="free") +
+  scale_color_brewer(palette = "Dark2") + 
+  scale_fill_brewer(palette="Dark2")
 
 ```
 Both methods achieve the same accurate solution. However, for the LSODA solver,
@@ -386,10 +418,12 @@ elsewhere. The model is solved using an Euler solver with a large time step
 of 0.5 days, once without any consideration of the discontinuities (green curve) and once
 with solver time steps inserted at the discontinuities (blue curve, method 1 above). These 
 results are compared to an accurate (but potentially inefficient) solution
-obtained using the LSODA solver. The time period of vaccination is shaded in yellow.
+obtained using the LSODA solver. The value of the $I$ compartment is shown over time, and the time period of vaccination is shaded in gray.
 
 ```{r, fig.width=8, fig.height=5}
 model <- SEIRDV()
+# Select transmission parameters where the effect of the discontinuity can be 
+# observed on a short time scale of 20 days
 params <- list(beta=1, kappa=0.9, gamma=0.5, mu=0.1, nu=0.4, delta_V=0.15, delta_R=0.05)
 transmission_parameters(model) <- params
 initial_conditions(model) <- list(S0=0.99, E0=0, I0=0.01, R0=0, V0=0)
@@ -398,7 +432,7 @@ intervention_parameters(model) <- list(starts=c(4.75),
                                        coverages=c(1),
                                        tanh_slopes=1000)
 
-times <- seq(0, 20, by = 1)
+times <- seq(0, 20, by = 0.5)
 df1 <- run(model, times, solve_method="lsoda")$states
 df1$method = "Accurate (LSODA)"
 
@@ -418,9 +452,9 @@ ggplot(subset(df, df[,3]=="I"),
   geom_rect(aes(xmin=4.75,
                 xmax=9.75,
                 ymin = -Inf,
-                ymax = Inf), fill = 'yellow', alpha = 0.025) +
+                ymax = Inf), fill = 'gray', alpha = 0.025) +
   geom_line(aes(color=method)) +
-  labs(title="Infected compartment")
+  ylab('I compartment')
 
 ```
 
@@ -456,7 +490,8 @@ ggplot(rbind(i1, i2), aes(x=time, y=coverage, color=method)) +
   scale_color_brewer(palette = "Dark2") +
   labs(x = "time (days)", y = "level of intervention")
 ```
-Next, we compare the effects of the tanh smoothing on the simulated incidences. The time period of vaccination is shaded in yellow.
+Next, we compare the effects of the tanh smoothing on the simulated incidences.
+The value of the $I$ compartment is shown over time, and the time period of vaccination is shaded in gray.
 
 ```{r, fig.width=8, fig.height=5}
 model <- SEIRDV()
@@ -468,7 +503,7 @@ intervention_parameters(model) <- list(starts=c(4.75),
                                        coverages=c(1),
                                        tanh_slopes=1000)
 
-times <- seq(0, 20, by = 1)
+times <- seq(0, 20, by = 0.5)
 df1 <- run(model, times, solve_method="lsoda")$states
 df1$method = "Without tanh smoothing"
 
@@ -489,9 +524,9 @@ ggplot(subset(df, df[,3]=="I"),
   geom_rect(aes(xmin=4.75,
                 xmax=9.75,
                 ymin = -Inf,
-                ymax = Inf), fill = 'yellow', alpha = 0.025) +
+                ymax = Inf), fill = 'gray', alpha = 0.025) +
   geom_line(aes(color=method)) +
-  labs(title="Infected compartment")
+  ylab('I compartment')
 ```
 Some slight differences are observed as a result of the tanh smoothing. Although the
 tanh smoothing does change the model behavior, in most applications of epidemiological
