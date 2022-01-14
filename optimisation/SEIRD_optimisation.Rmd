@@ -1,5 +1,5 @@
 ---
-title: "Optimisation with the SEIRD model"
+title: "Analysing the identifiability of the SEIRD model"
 output: pdf_document
 vignette: >
   %\VignetteIndexEntry{Vignette Title}
@@ -63,7 +63,7 @@ where $\beta$, $\kappa$, $\gamma$ and $\mu$ are the infection rate, incubation r
 More details can be found in [the SEIRD vignette](https://como-dtc-collaboration.github.io/como-models/articles/SEIRD.html) from the `comomodels` package.
 
 # Optimisation on real COVID-19 cases and deaths data for London
-We begin by fitting the SEIRD model to real COVID-19 case and deaths data for London [@london_data].
+We begin by fitting the SEIRD model to real COVID-19 cases and deaths data for London [@london_data].
 To illustrate the difficulty of making predictions early on during an epidemic, we constrained our period of observation to lie between the 20^th^ January 2020 to 22^nd^ March 2020.
 We chose this period because, on the 23^rd^ March, the UK government imposed the first lockdown [@uk_lockdown] and after that time, a model that does not allow changes to contact frequencies would not reproduce the observed dynamics.
 In what follows, the population size for London is assumed to be 9,002,488 [@londoncensus].
@@ -96,7 +96,7 @@ ggplot() +
   geom_line(data = London, aes(x = time, y = DailyDeaths, color = "Deaths")) +
   scale_color_manual(name = "",
 					 values = c("Incidence" = "red", "Deaths" = "blue")) +
-  labs(x = "time (days)", y = "number of count") +
+  labs(x = "time (days)", y = "counts") +
   theme(text = element_text(size = 12), legend.position = "bottom",
         legend.text = element_text(size = 10))
 ```
@@ -120,7 +120,7 @@ The initial conditions are fixed at
 
 $$ S(0) = 0.99799985, E(0) = 1 \times 10^{-7}, I(0) = 5 \times 10^{-8}, R(0) = 0.002. $$
 
-These values are chosen from the optimisation of the SEIRD model on all parameters, including initial conditions, which is done without showing in this vignette.
+These values are chosen from the optimisation of the SEIRD model on all parameters, including initial conditions, which is done without showing it in this vignette.
 
 ```{r}
 init_cond <- list(S0 = 0.99799985,
@@ -180,13 +180,25 @@ data_optimisation_plot(optimised_para, London)
 ```
 
 This plot indicates that, across the 100 replicates, there were considerable differences in the model fits to the data.
-To further illustrate this, we now plot the estimated parameter values and log-likelihood value from each of the replicates for each of the four model parameters.
+To further illustrate this, we now plot the estimated parameters value, $R_0$ value and log-likelihood value from each of the replicates for each of the four model parameters.
 
 ```{r, fig.height = 5, fig.width = 7}
+R0 <- data.frame("R0" = double())
+for (i in 1:nrow(optimised_para)) {
+  model <- SEIRD()
+  transmission_parameters(model) <- list(beta = optimised_para[i,]$beta_opt,
+										 kappa = optimised_para[i,]$kappa_opt,
+										 gamma = optimised_para[i,]$gamma_opt,
+										 mu = optimised_para[i,]$mu_opt)
+  initial_conditions(model) <- init_cond
+  R0[nrow(R0) + 1,] <- R0(model)}
+
+optimised_para["R0"] <- R0
+
 # Organise data for box plot
 plotting_data <- subset(optimised_para,
-                        select = c(beta_opt, kappa_opt, gamma_opt, mu_opt))
-colnames(plotting_data) <- c("beta", "kappa", "gamma", "mu")
+                        select = c(beta_opt, kappa_opt, gamma_opt, mu_opt, R0))
+colnames(plotting_data) <- c("beta", "kappa", "gamma", "mu", "R0")
 plotting_data$index <- seq(1, repeat_num)
 plotting_data$legend <- rep("optimised", repeat_num)
 data <- gather(plotting_data, key = "parameters",
@@ -196,8 +208,8 @@ data <- gather(plotting_data, key = "parameters",
 # in box plot format
 para_boxplot <- ggplot(data, aes(x = parameters, y = value)) +
   geom_boxplot() +
-  labs(y = "parameter value") +
-  theme(text = element_text(size = 15))
+  labs(x = "", y = "value") +
+  theme(text = element_text(size = 12))
 
 # Create box plot for log-likelihood values of all optimisations 
 plotting_data <- subset(optimised_para, select = c(obj_fn))
@@ -213,6 +225,7 @@ grid.arrange(para_boxplot, objfn_boxplot, widths = c(3, 1))
 ```
 
 This illustrates that some of the optimisation runs clearly became stuck at local minima, which is especially likely to occur when the objective function has only mild curvature near the maximum.
+All optimisation runs return a wide range of $R_0$ values, which gives different interpretation of the epidemic. 
 This result also indicates the importance of performing multiple-start optimisation to improve the odds of obtaining parameter estimates closer to the true optimum.
 
 To provide a measure of uncertainty in our model fits, we chose the 20 optimisation parameter sets with the highest log-likelihood as representing possible model fits to the data.
@@ -233,7 +246,8 @@ We now take those 20 optimisation parameter sets and use the SEIRD model to proj
 
 ```{r, fig.height = 5, fig.width = 7}
 # Plot prediction of the epidemic
-optimisation_plot(top_opt_df, London, time_length_scale = 5)
+optimisation_plot(top_opt_df, London,
+				  time_length_scale = 5)
 ```
 
 The figure above shows that even when the optimisation fits the real data well during early stages of the pandemic, very different outcomes are predicted.
@@ -242,20 +256,18 @@ This result indicates the importance of including measures of uncertainty when m
 It also indicates that raw cases and deaths data (particularly at the start of the epidemic) do not provide sufficient information to constrain model estimates.
 
 # Synthetic data studies and profile likelihood
-Using real data, it is unclear whether the estimation results obtained are due to model misspecification or, indeed, because the data contains insufficient information to identify the causative parameters.
+Using real data, it is unclear whether the estimation results obtained are due to model misspecification or, because the data contains insufficient information to identify the causative parameters.
 As such, we now perform a simulated data study: where we first generate simulated cases and deaths series using known parameter values.
 We then use these data to perform a profile likelihood analysis [@cole2014maximum] to assess the identifiability of the system.
 Briefly, a single profile likelihood value is the maximum likelihood value obtained when fixing a parameter of interest to a given value and optimising across the remaining parameters.
 When this exercise is repeated across a grid of such fixed values, a profile likelihood trace is obtained, and its shape can be used to assess the identifiability of the system.
 
 ## Generating synthetic data
-We first generate case and deaths series which qualitatively replicate the London COVID-19 data series which we investigate above.
-The initial conditions and transmission parameters used to generate the synthetic data are as follows: 
-
-$$ S(0) = 0.9999988, E(0) = 1 \times 10^{-7}, I(0) = 1 \times 10^{-7}, R(0) = 1 \times 10^{-6}, $$
-$$ \beta = 0.91, \kappa = 0.87, \gamma = 0.53, \mu = 0.097. $$
+We first generate cases and deaths series which qualitatively replicate the London COVID-19 data series which we investigate above.
+The initial conditions used to generate the synthetic data are taken as the values set previously when optimising transmission parameters for real data.
+The transmission parameters, on the other hand, are taken to be the parameter set which yielded the maximum log-likelihood value from the optimisations on real data.
 Here, we assume that we know the exact population size.
-The population size is set arbitrarily to $1 \times 10^4$.
+The population size is set to the population size of London.
 
 ```{r setup-model}
 transmission_para_name <- c("beta", "kappa", "gamma", "mu")
@@ -263,10 +275,10 @@ initial_conditions_name <- c("S0", "E0", "I0", "R0")
 
 # Set up SEIRD model
 model <- SEIRD()
-simulating_para <- list(beta = 9.1e-1, kappa = 8.7e-1,
-                        gamma = 5.3e-1, mu = 9.7e-2,
-                        S0 = 9.999988e-1, E0 = 1e-7,
-                        I0 = 1e-7, R0 = 1e-6)
+simulating_para <- list(beta = top_opt_df[1,]$beta_opt, kappa = top_opt_df[1,]$kappa_opt,
+                        gamma = top_opt_df[1,]$gamma_opt, mu = top_opt_df[1,]$mu_opt,
+                        S0 = 0.99799985, E0 = 1e-7,
+                        I0 = 5e-8, R0 = 0.002)
 transmission_parameters(model) <- simulating_para[transmission_para_name]
 initial_conditions(model) <- simulating_para[initial_conditions_name]
 
@@ -284,8 +296,6 @@ $$ D^{*}(t) \sim {\sf Pois}(D(t))$$
 where $C^{*}(t)$ and $D^{*}(t)$ represent the observed cases and deaths at time $t$, and $C(t)$ and $D(t)$ are the true cases and deaths at the same time.  
 
 ```{r add-noise, eval=!cached_bool}
-population_size <- 1e4
-
 # add Poisson noise to synthetic data 
 testing_data <- spread(out_df$changes, compartment, value)
 testing_data$Incidence <- testing_data$Incidence * population_size
@@ -308,7 +318,6 @@ write.csv(testing_data, "data/synthetic_data.csv", row.names = FALSE)
 ```
 ```{r, eval=cached_bool}
 # load saved data
-population_size <- 1e4
 testing_data <- read.csv("data/synthetic_data.csv")
 ```
 
@@ -321,21 +330,19 @@ ggplot() +
             aes(x = time, y = IncNoise, color = "Incidence")) +
   scale_color_manual(name = "",
                      values = c("Incidence" = "red", "Deaths" = "blue")) +
-  labs(x = "time (days)", y = "number of cases") +
+  labs(x = "time (days)", y = "count") +
   theme(text = element_text(size = 12), legend.position = "bottom",
         legend.text = element_text(size = 10))
 ```
 
 The figure above shows the synthetic data simulated for the full pandemic.
 
-The synthetic data is extracted to have the same amount of time points (days) since the first incidence as the London COVID-19 data. 
+The synthetic data is extracted to have the same amount of time points (days) as the London COVID-19 data. 
 The chosen data is visualised in the figure below.
 
 ```{r plot-data, fig.height = 5, fig.width = 7, error=TRUE}
 # Extract data prior to peak
-first_nonzero_ind <- which(testing_data$IncNoise > 0)[1]
-testing_data_short <- testing_data[
-  first_nonzero_ind:(first_nonzero_ind + nrow(London)),]
+testing_data_short <- testing_data[1:nrow(London),]
 
 # Visualise data
 ggplot() +
@@ -343,15 +350,15 @@ ggplot() +
             aes(x = time, y = DeathNoise, color = "Deaths")) +
   geom_line(data = testing_data_short,
             aes(x = time, y = IncNoise, color = "Incidence")) +
-  scale_color_manual(name = "Cases",
+  scale_color_manual(name = "",
                      values = c("Incidence" = "red", "Deaths" = "blue")) +
-  labs(x = "time (days)", y = "number of cases") +
+  labs(x = "time (days)", y = "count") +
   theme(text = element_text(size = 12), legend.position = "bottom",
         legend.text = element_text(size = 10))
 ```
 
 We now use a Poisson log-likelihood to fit the SEIRD model to the simulated data.
-The profile likelihood is then constructed for the transmission parameters, while the initial conditions are fixed at their true values, which are their respective state values from the simulated data at the time points of the first incidence.
+The profile likelihood is then constructed for the transmission parameters, while the initial conditions are fixed at their true values.
 
 ## Profile likelihood of $\beta$ and $\gamma$
 
@@ -362,15 +369,11 @@ In both cases, the parameter ranges include the causative parameter values.
 
 ```{r profile-range}
 # Set interested parameters for profile likelihood
-
-simulating_para[c("S0", "E0", "I0", "R0")] <- out_df$states[
-  (out_df$states$time == 30), ]$value[c(1:4)]
-
 profile_parameters <- c('beta', 'gamma')
 
 # Set range of values for interested parameters
 beta_range <- c(seq(simulating_para$beta,
-                    max(0.01, simulating_para$beta - 0.5),
+                    max(0.01, simulating_para$beta - 0.24),
                     by = -0.02),
                 seq(simulating_para$beta,
                     simulating_para$beta + 0.5,
@@ -388,7 +391,6 @@ range_transmission <- data.frame(parameter = rep('beta', length(beta_range)),
 range_transmission <- rbind(range_transmission, data.frame(
   parameter = rep('gamma', length(gamma_range)), fixed_value = gamma_range))
 ```
-
 We now run the optimisations required for our profile likelihood determination.
 The function is defined in a separate R script for better readability.
 
@@ -419,9 +421,85 @@ profilelikelihood_plot(profile_likelihood, profile_parameters)
 
 The figure above shows the log-likelihood value obtained by fixing, in turn, each parameter of interest and optimising the remaining transmission parameters. 
 The true parameter values used to generate the data are indicated by the vertical lines. 
-The profile likelihood shows a single peak for both $\beta$ and $\gamma$, which implies that the parameters are identifiable when the SEIRD model has only two transmission parameters.
+The profile likelihood shows a flat graph for both $\beta$ and $\gamma$.
+This implies that the parameters are unidentifiable.
 
-However, we note that, due to the noise, there is a bias when using the maximum likelihood estimate away from the true values.
+```{r 1D-likelihood, fig.height = 3, fig.width = 7}
+beta_loglikelihood_values <- data.frame(beta = double(),
+										likelihood_value = double())
+gamma_loglikelihood_values <- data.frame(gamma = double(), 
+										likelihood_value = double()) 
+for (beta in beta_range) {
+		parameters <- list(beta = beta)
+		ll_value <- LogLikelihoodFn(parameters, model = SEIRD(),
+									inc_numbers = testing_data_short$IncNoise,
+									death_numbers = testing_data_short$DeathNoise,
+									profile_parameters = c('beta'),
+									fixed_parameter = FALSE,
+									fixed_parameter_value = 0)
+		beta_loglikelihood_values[
+		  nrow(beta_loglikelihood_values) + 1,] <- c(beta, ll_value)}
+for (gamma in gamma_range) {
+		parameters <- list(gamma = gamma)
+		ll_value <- LogLikelihoodFn(parameters, model = SEIRD(),
+									inc_numbers = testing_data_short$IncNoise,
+									death_numbers = testing_data_short$DeathNoise,
+									profile_parameters = c('gamma'),
+									fixed_parameter = FALSE,
+									fixed_parameter_value = 0)
+		gamma_loglikelihood_values[
+		  nrow(gamma_loglikelihood_values) + 1,] <- c(gamma, ll_value)}
+
+beta_plot <- ggplot() + 
+  geom_point(data = beta_loglikelihood_values, aes(x=beta, y=likelihood_value)) +
+  geom_vline(xintercept = simulating_para$beta) +
+  labs(y = "log-likelihood value") + 
+  scale_y_continuous(labels = function(x) format(x, scientific = TRUE))
+gamma_plot <- ggplot() + 
+  geom_point(data = gamma_loglikelihood_values, aes(x=gamma, y=likelihood_value)) +
+  geom_vline(xintercept = simulating_para$gamma) + 
+  labs(y = "log-likelihood value") +
+  scale_y_continuous(labels = function(x) format(x, scientific = TRUE))
+grid.arrange(beta_plot, gamma_plot, nrow = 1, ncol = 2)
+```
+
+We plot, in the left panel, the log-likelihood values for different values of $\beta$ while fixing the remaining parameters to the true parameter values. 
+A similar plot is shown in the right panel for $\gamma$ instead of $\beta$.
+The graph shows that there exist an optimal maximum log-likelihood value for the two parameters.
+However, when optimising one parameter while fixing the other, the parameters compensate each other and become unidentifiable.   
+
+## Profile likelihood with more information
+
+If more data are collected, it may be possible to better identify a model's parameters, and here we investigate this for the SEIRD model.
+We show an example by constructing the profile likelihood using synthetic data with time points that cover the first wave of the pandemic.
+The data used is daily and taken to run from the start of the simulated data until $t = 150$ days, which is well after the epidemic wave has passed.
+
+```{r profile-opt-2param, eval=!cached_bool, error=TRUE, message=FALSE, warning=FALSE}
+profile_likelihood <- profilelikelihood_opt(profile_parameters,
+                                            range_transmission,
+                                            LogLikelihoodFn,
+                                            testing_data,
+                                            reltol = 1e-6)
+
+# Save results
+write.csv(profile_likelihood,
+          "data/synthetic_fulltrend_2param_profilelikelihood.csv",
+          row.names = FALSE)
+```
+
+```{r, eval=cached_bool}
+# Load results
+profile_likelihood <- read.csv(
+  "data/synthetic_fulltrend_2param_profilelikelihood.csv")
+```
+
+```{r plot-profile-2param, fig.height = 3, fig.width = 7, error=TRUE}
+# Plot profile likelihood
+profilelikelihood_plot(profile_likelihood, profile_parameters)
+```
+
+The figure above shows the profile likelihood of $\beta$ and $\gamma$, with the same notations as the previous figure.
+It is clear that the identifiability of these two parameters are improved with extra data points.
 
 ## Profile likelihood of all transmission parameters
 
@@ -434,23 +512,11 @@ The same procedure is repeated with all the transmission parameters (instead of 
 profile_parameters <- c('beta', 'kappa', 'gamma', 'mu')
 
 # Set range of values for interested parameters
-beta_range <- c(seq(simulating_para$beta,
-                    max(0.01, simulating_para$beta - 0.3),
-                    by = -0.02),
-                seq(simulating_para$beta,
-                    simulating_para$beta + 0.3,
-                    by = 0.02))
 kappa_range <- c(seq(simulating_para$kappa,
                      max(0.01, simulating_para$kappa - 0.3),
                      by = -0.02),
                  seq(simulating_para$kappa,
                      simulating_para$kappa + 0.3,
-                     by = 0.02))
-gamma_range <- c(seq(simulating_para$gamma,
-                     max(0.01, simulating_para$gamma - 0.3),
-                     by = -0.02),
-                 seq(simulating_para$gamma,
-                     simulating_para$gamma + 0.3,
                      by = 0.02))
 mu_range <- c(seq(simulating_para$mu,
                   max(0.01, simulating_para$mu - 0.1),
@@ -475,45 +541,8 @@ range_transmission <- rbind(range_transmission, data.frame(
 profile_likelihood <- profilelikelihood_opt(profile_parameters,
                                             range_transmission,
                                             LogLikelihoodFn,
-                                            testing_data_short,
+                                            testing_data,
                                             reltol = 1e-6)
-# Save results
-write.csv(profile_likelihood,
-          "data/synthetic_halftrend_4param_profilelikelihood.csv",
-          row.names = FALSE)
-```
-
-```{r, eval=cached_bool}
-# Load results
-profile_likelihood <- read.csv(
-  "data/synthetic_halftrend_4param_profilelikelihood.csv")
-```
-
-```{r plot-profile2, fig.height = 5, fig.width = 7, error=TRUE}
-# Plot profile likelihood
-profilelikelihood_plot(profile_likelihood, profile_parameters)
-```
-
-These results show that all transmission parameters are not identifiable since there is not a clear maximum to the profile likelihood in each case, especially for $\beta$ and $\kappa$, the profile likelihood is flat.
-However, in the case of $\mu$, its profile likelihood is discontinuous.
-When the parameter $\mu$ is fixed, the log-likelihood value by fitting the number of deaths is fully determined.
-Since $\beta$, $\kappa$ and $\gamma$ are free to be optimised, we assume that the log-likelihood value from number of cases is the optimum.
-Thus, the discontinuity in the profile likelihood of $\mu$ could come from the noise added to the death data.  
-
-## Profile likelihood with more information
-
-When more information is provided to the optimisation, the identifiability issue could be improved.
-Here, we show an example by constructing the profile likelihood using synthetic data with time points that cover the first wave of the pandemic.
-To be exact, the time points taken start from the first incidence to day 150, an arbitrary value when the simulated data ends.
-
-```{r profile-opt-4param, eval=!cached_bool, error=TRUE, message=FALSE, warning=FALSE}
-testing_data_mid <- testing_data[-(1:first_nonzero_ind - 1), ,drop = FALSE]
-profile_likelihood <- profilelikelihood_opt(profile_parameters,
-                                            range_transmission,
-                                            LogLikelihoodFn,
-                                            testing_data_mid,
-                                            reltol = 1e-6)
-
 # Save results
 write.csv(profile_likelihood,
           "data/synthetic_fulltrend_4param_profilelikelihood.csv",
@@ -526,18 +555,54 @@ profile_likelihood <- read.csv(
   "data/synthetic_fulltrend_4param_profilelikelihood.csv")
 ```
 
-```{r plot-profile-4param, fig.height = 5, fig.width = 7, error=TRUE}
+```{r plot-profile2, fig.height = 5, fig.width = 7, error=TRUE}
 # Plot profile likelihood
 profilelikelihood_plot(profile_likelihood, profile_parameters)
 ```
 
-The figure above shows the profile likelihood of $\beta$, $\kappa$, $\gamma$ and $\mu$, with the same notations as the previous figure. 
-However, although the identifiability is slightly improved for $\gamma$ and $\mu$, it is insufficientto accurately infer the parameters from the incidences and deaths data.
+These results show that all transmission parameters, except for $\gamma$, are not identifiable since there is not a clear maximum to the profile likelihood in each case.
 
 ## Profile likelihood of $\beta$, $\gamma$ and $\mu$
 
-Since we are fitting the transmission parameters to incidences and deaths, there is lack of information to accurately identify $\kappa$ and $\gamma$ individually.
-To test the hypothesis, we plot profile likelihood for $\beta$, $\gamma$ and $\mu$, fixing $\kappa$ to its true parameter value.
+A larger value of $\kappa$, implying a shorter latent period, means that an epidemic will appear sooner and that the peak of the wave will be higher.
+This could be partly offset by an increased value of $\gamma$, meaning that individuals are infectious for less time, resulting in a smaller epidemic that appears later.
+Because of this similarity in the effect of each of these parameters on the outputs, there is a positive correlation in a log-likelihood plot in ($\kappa$, $\gamma$) space, meaning that the model suffers from identifiability issues. 
+
+```{r, fig.height = 5, fig.width = 7}
+profile_parameters <- c('kappa', 'gamma')
+kappa_ll_range <- seq(0.02, 1.7, by = 0.1)
+gamma_ll_range <- seq(0.02, 0.9, by = 0.1)
+true_parameters <- data.frame(simulating_para[profile_parameters])
+loglikelihood_values <- data.frame(kappa = double(), gamma = double(),
+                                   likelihood_value = double())
+
+# Calculate log-likelihood values for a range of kappa and gamma values
+for (kappa in kappa_ll_range) {
+  for (gamma in gamma_ll_range) {
+	parameters <- list(kappa = kappa, gamma = gamma) 
+	ll_value <- LogLikelihoodFn(parameters, model = SEIRD(),
+	                            inc_numbers = testing_data_mid$IncNoise,
+	                            death_numbers = testing_data_mid$DeathNoise,
+	                            profile_parameters = profile_parameters,
+	                            fixed_parameter = FALSE,
+	                            fixed_parameter_value = 0)
+			loglikelihood_values[
+			  nrow(loglikelihood_values) + 1,] <- c(kappa, gamma, ll_value)
+			}}
+
+# Plot log-likelihood values for a range of kappa and gamma values
+
+ggplot() +
+  geom_contour_filled(data = loglikelihood_values,
+			aes(x = kappa, y = gamma, z = likelihood_value)) + 
+  geom_point(data = true_parameters,
+			 aes(x = kappa, y = gamma)) + 
+  labs(fill = "log-likelihood value") +
+  theme(text = element_text(size = 12),
+		legend.text = element_text(size = 10))
+```
+
+Because $\kappa$ and $\gamma$ cannot uniquely be identified by the cases and deaths data, we fix $\kappa$ at its true value and repeat the profile likelihood analysis.
 
 ```{r profile-range3}
 # Set interested parameters for profile likelihood
@@ -557,7 +622,7 @@ range_transmission <- rbind(range_transmission, data.frame(
 profile_likelihood <- profilelikelihood_opt(profile_parameters,
                                             range_transmission,
                                             LogLikelihoodFn,
-                                            testing_data_mid,
+                                            testing_data,
                                             reltol = 1e-6)
 # Save results
 write.csv(profile_likelihood,
@@ -576,53 +641,20 @@ profile_likelihood <- read.csv(
 profilelikelihood_plot(profile_likelihood, profile_parameters)
 ```
 
-As shown in the profile likelihood graph, the parameters are identifiable.
-
-```{r, fig.height = 5, fig.width = 7}
-profile_parameters <- c('kappa', 'gamma')
-kappa_range <- seq(0.2, 1.92, by = 0.02)
-gamma_range <- seq(0.2, 1.34, by = 0.02)
-true_parameters <- data.frame(simulating_para[profile_parameters])
-loglikelihood_values <- data.frame(kappa = double(), gamma = double(),
-                                   likelihood_value = double())
-
-# Calculate log-likelihood values for a range of kappa and gamma values
-for (kappa in kappa_range) {
-  for (gamma in gamma_range) {
-	parameters <- list(kappa = kappa, gamma = gamma) 
-	ll_value <- LogLikelihoodFn(parameters, model = SEIRD(),
-	                            inc_numbers = testing_data_mid$IncNoise,
-	                            death_numbers = testing_data_mid$DeathNoise,
-	                            profile_parameters = profile_parameters,
-	                            fixed_parameter = FALSE,
-	                            fixed_parameter_value = 0)
-			loglikelihood_values[
-			  nrow(loglikelihood_values) + 1,] <- c(kappa, gamma, ll_value)
-			}}
-
-# Plot log-likelihood values for a range of kappa and gamma values
-ggplot() +
-  geom_tile(data = loglikelihood_values,
-			aes(x = kappa, y = gamma, fill = likelihood_value)) + 
-  scale_fill_viridis_c() +
-  geom_point(data = true_parameters,
-			 aes(x = kappa, y = gamma, size = "true value")) +
-  labs(fill = "log-likelihood value", size = "") +
-  scale_size_manual(values = c(3)) +
-  theme(text = element_text(size = 12),
-		legend.text = element_text(size = 10))
-```
-
-The graph shows the log-likelihood values for different combinations of $\kappa$ and $\gamma$, with the black point indicating the true values of the parameters.
-As observed from the graph, $\kappa$ and $\gamma$ are strongly correlated. 
-Region neighbouring the true value shows large area where combinations of these two parameters gives equally high log-likelihood values.
-Thus, when optimisating for all transmission parameters, the parameters are unidentifiable. 
+As shown in the profile likelihood graph, the parameters are now identifiable.
 
 # Conclusion
-We have shown that there are identifiability issues with the parameters in the SEIRD model by showing that multiple sets of parameters can fit the SEIRD model to the pre-lockdown London COVID-19 data.
-This lack of model identification led to a diversity of forecasted scenarios for cases and deaths and illustrates the importance of quantifying modelled uncertainty when using transmission dynamics models to inform policy.
+Using both real data on disease cases and deaths from before the peak of the 1^st^ epidemic wave of COVID-19 in London and simulated data, we have demonstrated that the SEIRD model is not fully identified.
+Further, even if data on a complete (and unmitigated) epidemic are available, the model remains unidentified.
+This identifiability issue is because $\kappa$, the rate at which infected individuals become infectious, and $\gamma$, the rate of recovery, both have similar impacts on the resultant dynamics, meaning it is difficult to separate one's effect from the other's.
+This means that, in reality, one or both of these parameters is typically estimated using other sources of data -- usually laboratory studies.
+These parameters are then either fixed at these outside estimates when inference is performed, or strongly informative priors (incorporating information from these external studies) are used.
 
-Additionally, we have shown how simulated data and the profile likelihood method can be used to assess the identifiability of models in the absence of real data.
-Since such analyses can highlight the insufficiency of data and the existence of non-inferable parameters for estimating model parameters, we argue these approaches should be pursued as precursors to performing inference on real data.
+Overall, our results show that performing inference for transition dynamics models can be plagued with identifiability issues.
+Here, we illustrated this using the relatively simple SEIRD model.
+This model is the simplest in our package and has substantially fewer parameters than the complex models that have often been used to inform policymaking.
+This means that assessing their identifiability using simulated data and approaches such as the profile likelihood method before performing inference on real data is likely to have great utility.
+These larger models are also likely to rely more on information from other studies, and, due to having more parameters, may have many more combinations of parameters that yield similar fits to the data.
+As such, it is particularly key to present sensitivity analyses when publishing predictions using these models.
 
 # References

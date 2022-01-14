@@ -76,11 +76,11 @@ data_optimisation_plot <- function(parameters_df, data, time_length_scale=1){
         
   	  plots[[1]] <- plots[[1]] +
           geom_line(data=data_set, aes(x = time, y = Incidence,
-                                       color="Estimated Incidence"))
+                                       color="Projected Incidence"))
   	      
       plots[[2]] <- plots[[2]] +
           geom_line(data=data_set, aes(x = time, y = Deaths,
-                                       color="Estimated Deaths"))
+                                       color="Projected Deaths"))
     }
     plots[[1]] <- plots[[1]] +
       geom_line(data=data, aes(x = time, y = DailyCases,
@@ -90,10 +90,10 @@ data_optimisation_plot <- function(parameters_df, data, time_length_scale=1){
                                color="Actual Deaths"))
     plots[[1]] <- plots[[1]] +
         scale_color_manual(name = "",
-                           values = c("Estimated Incidence" = "#FF6699",
+                           values = c("Projected Incidence" = "#FF6699",
                                       "Actual Incidence" = "darkred")) +
-        ggtitle("Incidences") +
-        labs(x = "time (days)", y = "number of cases") +
+        ggtitle("Incidence") +
+        labs(x = "time (days)", y = "counts") +
         ylim(0, ymax) +
         theme(text = element_text(size = 12), legend.position = "bottom",
               legend.text = element_text(size = 10),
@@ -101,10 +101,10 @@ data_optimisation_plot <- function(parameters_df, data, time_length_scale=1){
               legend.box.spacing = unit(0.01, "cm"))
     plots[[2]] <- plots[[2]] +
         scale_color_manual(name = "",
-                           values = c("Estimated Deaths" = "#66CCFF",
+                           values = c("Projected Deaths" = "#66CCFF",
                                       "Actual Deaths" = "blue")) +
         ggtitle("Deaths") +
-        labs(x = "time (days)", y = "number of cases") +
+        labs(x = "time (days)", y = "counts") +
         ylim(0, ymax) +
         theme(text = element_text(size = 12), legend.position = "bottom",
               legend.text = element_text(size = 10),
@@ -115,7 +115,8 @@ data_optimisation_plot <- function(parameters_df, data, time_length_scale=1){
 
 
 # Define function to plot data and optimised trajectory
-optimisation_plot <- function(parameters_df, data, time_length_scale=1){
+optimisation_plot <- function(parameters_df, data,
+							  time_length_scale=1) {
   
   # Extract optimised parameters from data frame
   optimised_para <- subset(parameters_df, select=c(beta_opt, kappa_opt,
@@ -153,15 +154,15 @@ optimisation_plot <- function(parameters_df, data, time_length_scale=1){
     
     plots <- plots +
       geom_line(data=data_set, aes(x = time, y = Incidence,
-                                   color="Estimated Incidence")) +
+                                   color="Projected Incidence")) +
       geom_line(data=data_set, aes(x = time, y = Deaths,
-                                   color="Estimated Deaths"))
+                                   color="Projected Deaths"))
   }
   plots <- plots +
     scale_color_manual(name = "",
-                       values = c("Estimated Incidence" = "#FF6699",
-                                  "Estimated Deaths" = "#66CCFF")) +
-    labs(x = "time (days)", y = "number of counts") +
+                       values = c("Projected Incidence" = "#FF6699",
+                                  "Projected Deaths" = "#66CCFF")) +
+    labs(x = "time (days)", y = "counts") +
     ylim(0, ymax) +
     theme(text = element_text(size = 12), legend.position = "bottom",
           legend.text = element_text(size = 10))
@@ -245,7 +246,7 @@ profilelikelihood_opt <- function(profile_parameters, range_transmission,
                             model=model,
                             inc_numbers = synthetic_data$IncNoise,
                             death_numbers = synthetic_data$DeathNoise,
-                            profile_parameters = profile_parameters,
+							profile_parameters = profile_parameters,
                             fixed_parameter = param_name,
                             fixed_parameter_value = fixed_values[i])
       
@@ -278,9 +279,10 @@ profilelikelihood_plot <- function(profile_likelihood, profile_parameters){
   	profile_plot[[i]] <- ggplot(plot_data, aes(x = fixed_value,
                                                y = likelihood_value)) +
       geom_vline(xintercept = as.numeric(simulating_para[profile_parameters[i]])) +
-      geom_point() + ylim(ymin, ymax) +
+      geom_point() + 
       labs(x = paste("fixed value"), y = "log-likelihood value") +
       ggtitle(profile_parameters[i]) +
+	  scale_y_continuous(limits = c(ymin, ymax), labels = function(x) format(x, scientific = TRUE)) +
       theme(text = element_text(size = 12))
   }
   grid.arrange(grobs=profile_plot, nrow = ceiling(length(profile_parameters)/2), ncol = 2)
