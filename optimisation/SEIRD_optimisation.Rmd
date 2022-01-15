@@ -180,7 +180,7 @@ data_optimisation_plot(optimised_para, London)
 ```
 
 This plot indicates that, across the 100 replicates, there were considerable differences in the model fits to the data.
-To further illustrate this, we now plot the estimated parameters value, $R_0$ value and log-likelihood value from each of the replicates for each of the four model parameters.
+To further illustrate this, we now plot the parameter estimates, the $R_0$ value (the basic reproduction number) and the log-likelihood across the various optimisation results.
 
 ```{r, fig.height = 5, fig.width = 7}
 R0 <- data.frame("R0" = double())
@@ -227,11 +227,21 @@ objfn_boxplot <- ggplot(data, aes(x = likelihood_value, y = value)) +
   labs(x = " ", y = "log-likelihood value") +
   theme(text = element_text(size = 12))
 grid.arrange(para_boxplot, objfn_boxplot, widths = c(3, 1))
+
+opt_df <- optimised_para[order(-optimised_para$obj_fn),]
+head(opt_df)
 ```
 
 This illustrates that some of the optimisation runs clearly became stuck at local minima, which is especially likely to occur when the objective function has only mild curvature near the maximum.
-All optimisation runs return a wide range of $R_0$ values, which gives different interpretation of the epidemic. 
 This result also indicates the importance of performing multiple-start optimisation to improve the odds of obtaining parameter estimates closer to the true optimum.
+
+Across the optimisations, there was notable uncertainty in $R_0$ indicating that, given such early data, it is a difficult quantity to estimate.
+But, conversely, it is precisely these early data which may offer best insights into this crucial parameter.
+At this stage in the epidemic for COVID-19, there was likely negligible immunity in the population and individuals were continuing to behave normally.
+These characteristics greatly simplify the task of estimating $R_0$, since the models used to fit it require fewer assumptions.
+There is thus a tension between waiting to obtain more data and restricting the data used for estimation to avoid having to make more assumptions about transmission processes.
+Our maximum likelihood fit had an $R_0$ value of X, which is comparable to other values in the literature, for instance $R_0 = 2.4$ was used in Imperial College's Report 9 [cite Ferguson report 9 paper].
+This illustrates that even relatively simple models like the SEIRD may be used to yield quick and potentially useful estimates of quantities of interest.
 
 To provide a measure of uncertainty in our model fits, we chose the 20 optimisation parameter sets with the highest log-likelihood as representing possible model fits to the data.
 We recognise that a more formal uncertainty analysis like that obtained from Bayesian inference would yield a different measure of uncertainty.
@@ -240,7 +250,6 @@ Our point is rather to illustrate that a number of parameter sets -- here those 
 ```{r, fig.height = 5, fig.width = 7}
 # Sort data in order of highest log-likelihood value
 chosen_repeats <- 20
-opt_df <- optimised_para[order(-optimised_para$obj_fn),]
 top_opt_df <- opt_df[1:chosen_repeats,]
 
 # Plot trajectories of optimisation with highest log-likelihood value
@@ -367,7 +376,8 @@ The profile likelihood is then constructed for the transmission parameters, whil
 
 ## Profile likelihood of $\beta$ and $\gamma$
 
-We start by illustrating an identified model by fixing all parameters at their known values apart from $\beta$ and $\gamma$.
+We first suppose that only $\beta$ and $\gamma$ are unknown and apply the profile likelihood approach to $\beta$ and $\gamma$ only, fixing the other transmission parameters ($\kappa$ and $\mu$) at their known values.
+So when considering $\beta$, we scan across a range of different values from this parameter and perform optimisation to find the $\gamma$ value which maximises the log-likelihood for that particular $\beta$ value; when considering $\gamma$, we perform optimisation for $\beta$.
 
 Our first step is to set the grid ranges over which to scan for each of $\beta$ and $\gamma$.
 In both cases, the parameter ranges include the causative parameter values.
@@ -420,16 +430,26 @@ profile_likelihood <- read.csv(
   "data/synthetic_halftrend_2param_profilelikelihood.csv")
 ```
 
+We now plot the profile likelihoods for $\beta$ and $\gamma$ below.
+In this figure, we indicate the true parameter values by vertical lines.
+For both of these parameters, the profile likelihood is only gently curved near the maximum, and the parameters are only weakly identified.
 ```{r plot-profile, fig.height = 3, fig.width = 7, error=TRUE}
 profilelikelihood_plot(profile_likelihood, profile_parameters)
 ```
 
-The figure above shows the log-likelihood value obtained by fixing, in turn, each parameter of interest and optimising the remaining transmission parameters. 
-The true parameter values used to generate the data are indicated by the vertical lines. 
-The profile likelihood shows a flat graph for both $\beta$ and $\gamma$.
-This implies that the parameters are unidentifiable.
+We next consider an easier inference problem, when all of the parameters bar the parameter under consideration are fixed at their known values.
+In the plot below, in the left panel, the log-likelihood values for different values of $\beta$ while fixing the remaining parameters to the true parameter values.
+A similar plot is shown in the right panel for $\gamma$. 
+Both parameters are relatively well identified in this case.
 
 ```{r 1D-likelihood, fig.height = 3, fig.width = 7}
+beta_ll_range <- c(seq(simulating_para$beta,
+                       max(0.01, simulating_para$beta - 0.24),
+                       by = -0.02),
+                   seq(simulating_para$beta,
+                       simulating_para$beta + 0.1,
+                       by = 0.02))
+
 beta_loglikelihood_values <- data.frame(beta = double(),
 										likelihood_value = double())
 gamma_loglikelihood_values <- data.frame(gamma = double(), 
@@ -456,26 +476,23 @@ for (gamma in gamma_range) {
 		  nrow(gamma_loglikelihood_values) + 1,] <- c(gamma, ll_value)}
 
 beta_plot <- ggplot() + 
-  geom_point(data = beta_loglikelihood_values, aes(x=beta, y=likelihood_value)) +
+  geom_point(data = beta_loglikelihood_values,
+             aes(x = beta, y = likelihood_value)) +
   geom_vline(xintercept = simulating_para$beta) +
   labs(x = bquote(beta), y = "log-likelihood value") + 
   scale_y_continuous(labels = function(x) format(x, scientific = TRUE))
 gamma_plot <- ggplot() + 
-  geom_point(data = gamma_loglikelihood_values, aes(x=gamma, y=likelihood_value)) +
+  geom_point(data = gamma_loglikelihood_values,
+             aes(x = gamma, y = likelihood_value)) +
   geom_vline(xintercept = simulating_para$gamma) + 
   labs(x = bquote(gamma), y = "log-likelihood value") +
   scale_y_continuous(labels = function(x) format(x, scientific = TRUE))
 grid.arrange(beta_plot, gamma_plot, nrow = 1, ncol = 2)
 ```
 
-We plot, in the left panel, the log-likelihood values for different values of $\beta$ while fixing the remaining parameters to the true parameter values. 
-A similar plot is shown in the right panel for $\gamma$ instead of $\beta$.
-The graph shows that there exist an optimal maximum log-likelihood value for the two parameters.
-However, when optimising one parameter while fixing the other, the parameters compensate each other and become unidentifiable.   
-
 ## Profile likelihood with more information
 
-If more data are collected, it may be possible to better identify a model's parameters, and here we investigate this for the SEIRD model.
+If more data are collected, it may be possible to better identify a model's parameters, and here we investigate this for the SEIRD model, supposing that all parameters apart from $\beta$ and $\gamma$ are known..
 We show an example by constructing the profile likelihood using synthetic data with time points that cover the first wave of the pandemic.
 The data used is daily and taken to run from the start of the simulated data until $t = 150$ days, which is well after the epidemic wave has passed.
 
@@ -504,13 +521,15 @@ profilelikelihood_plot(profile_likelihood, profile_parameters)
 ```
 
 The figure above shows the profile likelihood of $\beta$ and $\gamma$, with the same notations as the previous figure.
-It is clear that the identifiability of these two parameters are improved with extra data points.
+This plot shows that the profile likelihoods for $\beta$ and $\gamma$ are both peaked at their true values, indicating that the model is identified.
+In this case, providing more data, encompassing the whole of the epidemic has helped us to estimate the parameters.
+Note that, for COVID-19, this quality of data would not typically be available because many countries put in place interventions aiming to divert the course of the epidemic.
+A byproduct of this is that the models required to reproduce the observed dynamics become more complicated: increasing the difficulty of the inference problem.
 
 ## Profile likelihood of all transmission parameters
 
-Here, we construct the profile likelihood by adding more unknown parameters into the optimisation.
-We will see how the number of parameters affects the identifiability of the transmission parameters of the SEIRD model.
-The same procedure is repeated with all the transmission parameters (instead of two out of the four): $\beta$, $\kappa$, $\gamma$ and $\mu$.
+We now investigate the identifiability of the model when all four transmission parameters: $\beta$, $\kappa$, $\gamma$ and $\mu$, are unknown.
+For each of these parameters, we plot a profile likelihood assuming that we have access to data for the entire epidemic wave.
 
 ```{r profile-range2}
 # Set interested parameters for profile likelihood
@@ -565,13 +584,15 @@ profile_likelihood <- read.csv(
 profilelikelihood_plot(profile_likelihood, profile_parameters)
 ```
 
-These results show that all transmission parameters, except for $\gamma$, are not identifiable since there is not a clear maximum to the profile likelihood in each case.
+All transmission parameters, except for $\gamma$, are not identifiable since there is not a clear maximum to the profile likelihood in each case.
+Clearly, by adding more unknown parameters, this has increased the difficulty of the inference problem.
+Intuitively, many combinations of the parameters yield similar fits to the data (as when we initially searched for the maximum likelihood estimates for the real data), meaning that there are wide ranges of each parameter that may yield comparable log-likelihoods.
 
 ## Profile likelihood of $\beta$, $\gamma$ and $\mu$
 
 A larger value of $\kappa$, implying a shorter latent period, means that an epidemic will appear sooner and that the peak of the wave will be higher.
 This could be partly offset by an increased value of $\gamma$, meaning that individuals are infectious for less time, resulting in a smaller epidemic that appears later.
-Because of this similarity in the effect of each of these parameters on the outputs, there is a positive correlation in a log-likelihood plot in ($\kappa$, $\gamma$) space, meaning that the model suffers from identifiability issues. 
+Because of this similarity in the effect of each of these parameters on the outputs, there is a positive correlation in a log-likelihood plot in ($\kappa$, $\gamma$) space, explaining why it is difficult to estimate both of these parameters from data. 
 
 ```{r, fig.height = 5, fig.width = 7}
 profile_parameters <- c('kappa', 'gamma')
@@ -646,7 +667,7 @@ profile_likelihood <- read.csv(
 profilelikelihood_plot(profile_likelihood, profile_parameters)
 ```
 
-As shown in the profile likelihood graph, the parameters are now identifiable.
+With only $\beta$, $\gamma$ and $\mu$ unknown, the model is identified given data for the full epidemic.
 
 # Conclusion
 Using both real data on disease cases and deaths from before the peak of the 1^st^ epidemic wave of COVID-19 in London and simulated data, we have demonstrated that the SEIRD model is not fully identified.
