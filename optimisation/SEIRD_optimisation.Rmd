@@ -447,7 +447,7 @@ beta_ll_range <- c(seq(simulating_para$beta,
                        max(0.01, simulating_para$beta - 0.24),
                        by = -0.02),
                    seq(simulating_para$beta,
-                       simulating_para$beta + 0.2,
+                       simulating_para$beta + 0.1,
                        by = 0.02))
 
 beta_loglikelihood_values <- data.frame(beta = double(),
