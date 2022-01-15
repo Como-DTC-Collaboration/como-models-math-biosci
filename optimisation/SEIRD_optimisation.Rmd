@@ -607,8 +607,8 @@ for (kappa in kappa_ll_range) {
   for (gamma in gamma_ll_range) {
 	parameters <- list(kappa = kappa, gamma = gamma) 
 	ll_value <- LogLikelihoodFn(parameters, model = SEIRD(),
-	                            inc_numbers = testing_data_mid$IncNoise,
-	                            death_numbers = testing_data_mid$DeathNoise,
+	                            inc_numbers = testing_data$IncNoise,
+	                            death_numbers = testing_data$DeathNoise,
 	                            profile_parameters = profile_parameters,
 	                            fixed_parameter = FALSE,
 	                            fixed_parameter_value = 0)
