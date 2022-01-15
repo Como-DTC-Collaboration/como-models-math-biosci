@@ -229,7 +229,7 @@ objfn_boxplot <- ggplot(data, aes(x = likelihood_value, y = value)) +
 grid.arrange(para_boxplot, objfn_boxplot, widths = c(3, 1))
 
 opt_df <- optimised_para[order(-optimised_para$obj_fn),]
-head(opt_df)
+print(opt_df[1,]$R0)
 ```
 
 This illustrates that some of the optimisation runs clearly became stuck at local minima, which is especially likely to occur when the objective function has only mild curvature near the maximum.
@@ -240,7 +240,7 @@ But, conversely, it is precisely these early data which may offer best insights 
 At this stage in the epidemic for COVID-19, there was likely negligible immunity in the population and individuals were continuing to behave normally.
 These characteristics greatly simplify the task of estimating $R_0$, since the models used to fit it require fewer assumptions.
 There is thus a tension between waiting to obtain more data and restricting the data used for estimation to avoid having to make more assumptions about transmission processes.
-Our maximum likelihood fit had an $R_0$ value of X, which is comparable to other values in the literature, for instance $R_0 = 2.4$ was used in Imperial College's Report 9 [cite Ferguson report 9 paper].
+Our maximum likelihood fit had an $R_0$ value of 3.6, which is higher than the $R_0 = 2.4$ used in Imperial College's Report 9 [@ferguson_report9].
 This illustrates that even relatively simple models like the SEIRD may be used to yield quick and potentially useful estimates of quantities of interest.
 
 To provide a measure of uncertainty in our model fits, we chose the 20 optimisation parameter sets with the highest log-likelihood as representing possible model fits to the data.
@@ -447,14 +447,14 @@ beta_ll_range <- c(seq(simulating_para$beta,
                        max(0.01, simulating_para$beta - 0.24),
                        by = -0.02),
                    seq(simulating_para$beta,
-                       simulating_para$beta + 0.1,
+                       simulating_para$beta + 0.2,
                        by = 0.02))
 
 beta_loglikelihood_values <- data.frame(beta = double(),
 										likelihood_value = double())
 gamma_loglikelihood_values <- data.frame(gamma = double(), 
 										likelihood_value = double()) 
-for (beta in beta_range) {
+for (beta in beta_ll_range) {
 		parameters <- list(beta = beta)
 		ll_value <- LogLikelihoodFn(parameters, model = SEIRD(),
 									inc_numbers = testing_data_short$IncNoise,
