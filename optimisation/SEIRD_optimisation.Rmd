@@ -209,6 +209,11 @@ data <- gather(plotting_data, key = "parameters",
 para_boxplot <- ggplot(data, aes(x = parameters, y = value)) +
   geom_boxplot() +
   labs(x = "", y = "value") +
+  scale_x_discrete(labels = c("beta" = bquote(beta),
+							  "kappa" = bquote(kappa),
+							  "gamma" = bquote(gamma),
+							  "mu" = bquote(mu),
+							  "R0" = bquote(R[0]))) +
   theme(text = element_text(size = 12))
 
 # Create box plot for log-likelihood values of all optimisations 
@@ -453,12 +458,12 @@ for (gamma in gamma_range) {
 beta_plot <- ggplot() + 
   geom_point(data = beta_loglikelihood_values, aes(x=beta, y=likelihood_value)) +
   geom_vline(xintercept = simulating_para$beta) +
-  labs(y = "log-likelihood value") + 
+  labs(x = bquote(beta), y = "log-likelihood value") + 
   scale_y_continuous(labels = function(x) format(x, scientific = TRUE))
 gamma_plot <- ggplot() + 
   geom_point(data = gamma_loglikelihood_values, aes(x=gamma, y=likelihood_value)) +
   geom_vline(xintercept = simulating_para$gamma) + 
-  labs(y = "log-likelihood value") +
+  labs(x = bquote(gamma), y = "log-likelihood value") +
   scale_y_continuous(labels = function(x) format(x, scientific = TRUE))
 grid.arrange(beta_plot, gamma_plot, nrow = 1, ncol = 2)
 ```

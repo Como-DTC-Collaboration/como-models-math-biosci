@@ -281,7 +281,7 @@ profilelikelihood_plot <- function(profile_likelihood, profile_parameters){
       geom_vline(xintercept = as.numeric(simulating_para[profile_parameters[i]])) +
       geom_point() + 
       labs(x = paste("fixed value"), y = "log-likelihood value") +
-      ggtitle(profile_parameters[i]) +
+      ggtitle(parse(text = paste0(profile_parameters[i], ''))) +
 	  scale_y_continuous(limits = c(ymin, ymax), labels = function(x) format(x, scientific = TRUE)) +
       theme(text = element_text(size = 12))
   }
