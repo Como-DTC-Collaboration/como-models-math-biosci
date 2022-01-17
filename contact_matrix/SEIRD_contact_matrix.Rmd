@@ -1,6 +1,7 @@
 ---
-title: "SEIRD_contact_matrix"
-output: rmarkdown::github_document
+title: "SEIRD contact matrix"
+output: rmarkdown::pdf_document
+bibliography: ../references.bib
 vignette: >
   %\VignetteIndexEntry{SEIRD_contact_matrix}
   %\VignetteEncoding{UTF-8}
@@ -13,16 +14,13 @@ editor_options:
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  warning = FALSE,
+  message = FALSE
 )
 ```
 
-```{r setup}
-library(comomodels)
-library(tidyverse)
-library(ggplot2)
-library(socialmixr)
-```
+
 
 ## Introduction
 
@@ -32,10 +30,17 @@ groups. Given a contact matrix $C$, each element $C_{i,j}$ indicates the
 expected number of contacts someone from age group $i$ has per day with people
 from age group $j$.
 
-Comomodels includes estimates of the contact matrix for each country (Prem et 
-al., 2017; with full details available in the data documentation). Separate
+Comomodels includes estimates of the contact matrix for each country ([@prem2021projecting]; 
+with full details available in the data documentation). Separate
 matrices are available for contacts at home, work, school, and other. Below, we
 generate a plot of the contact matrices.
+
+```{r setup}
+library(comomodels)
+library(tidyverse)
+library(ggplot2)
+library(socialmixr)
+```
 
 ```{r}
 contact_home <- comomodels::contact_home
@@ -78,7 +83,8 @@ c_all %>%
   ggplot(aes(x=age_infector, y=age_infectee, fill=value)) +
   geom_tile() +
   scale_fill_viridis_c() +
-  facet_wrap(~type)
+  facet_wrap(~type) +
+  theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1))
 ```
 
 While it is possible to construct location-based transmission models, in this 
@@ -100,6 +106,11 @@ The purpose of the remainder of this notebook is to investigate the sensitivity
 of the outputs of the age-structured SEIRD model to the values of the contact
 matrix. Using bootstrap samples which represent the uncertainty in the contact
 matrix, we show significant uncertainty in the numbers of infected individuals.
+The bootstrap algorithm works by repeatedly selecting random samples (with
+replacement) of the survey respondents, and using the sample to calculate a
+particular contact matrix. Each sample yields a potentially different contact
+matrix, and this set of contact matrices reveals something of the uncertainty
+in its values.
 
 ## Accuracy of uncertainty estimates produced by the bootstrapping methods
 
@@ -178,21 +189,45 @@ SEIR outputs will be studied.
 
 In this step, we run the age-structured SEIRD model once for each bootstrap
 sample of the contact matrix. We use fixed values for the other parameters of
-the model. In particular, we set $\beta=2$, $\kappa=1$, and $\gamma=1$, with
-an initial exposed group compartment equal to 0.1% of the population size, and
-all other individuals in the susceptible group.
+the model. We set an initial exposed group compartment equal to 0.1% of the
+population size, and all other individuals in the susceptible group.
 
-The age-structured model takes another parameter $\mu$ which specifies the rate
+The transmission parameters are set to resemble those of the COVID-19 outbreak.
+For the latency period, we assume 5.5 days [@xin2021estimating], and for the duration
+of infectiousness, 2 days (thus, fewer than 1% of individuals are infectious after
+10 days, in line with government guidelines [@stayathome2021]). To set the 
+transmission rate $\beta$, we choose the value such that the basic reproduction 
+number, $R_0$, is equal to 2.4 [@ferguson2020report]. The age-structured model also takes the parameter $\mu$ which specifies the rate
 at which infected people enter the deceased compartment. For this parameter, we
 provide a vector giving a separate value for each age group. The values are
 selected to resemble the death rates of the COVID-19 outbreak in mainland China
-during January and February 2020 (Verity, R, et al. "Estimates of the severity
-of coronavirus disease 2019: a model-based analysis." The Lancet Infectious
-Diseases 20.6 (2020): 669-677).
+during January and February 2020 [@verity2020estimates]. To obtain estimates of
+$\mu$ for each age group, we use data for the case fatality ratio (IFR).
+
+To calculate the recovery rate ($\gamma$) and the death rate ($\mu$) from the above quantities, we introduce $\eta$ giving the
+inverse of the average duration of infectiousness, and set:
+
+$$\mu = \eta \text{IFR}$$
+$$\gamma = \eta (1-\text{IFR})$$
+
+
 
 ```{r}
-mu=c(0.000016, 0.000016, 0.00007, 0.00007, 0.00031, 0.00031, 0.0026, 0.0026,
-     0.0048, 0.0048, 0.006, 0.006, 0.019, 0.019, 0.043, 0.043)
+# Age structured parameters
+mu <- covid_transmission_parameters(is_age_structured=TRUE)[4]$mu$mu[1:8]
+mu_age_vals <- rep(mu, each=2)
+
+gamma <- covid_transmission_parameters(is_age_structured=TRUE)[3]$gamma$gamma[1:8]
+gamma_age_vals <- rep(gamma, each=2)
+
+# Set the non-age structured parameters
+parameters <- covid_transmission_parameters()
+kappa <- parameters$kappa
+gamma <- parameters$gamma
+mu <- parameters$mu
+R0_target <- parameters$R0
+beta <- (mu + gamma) * R0_target
+
 ```
 
 ```{r}
@@ -211,13 +246,13 @@ for (i in 1:n_bootstrap){
                    age_ranges=as.list(age_names))
 
   # Set the other parameters of the model
-  transmission_parameters(model) <- list(b=2.0, k=1.0, g=1.0, mu=mu)
+  transmission_parameters(model) <- list(b=beta, k=kappa, g=gamma_age_vals, mu=mu_age_vals)
   initial_conditions(model) <- list(S0=pop_fraction*0.999,
                                     E0=rep(0, n_ages),
                                     I0=pop_fraction*0.001,
                                     R0=rep(0, n_ages),
                                     D0=rep(0, n_ages))
-  res <- run(model, time=seq(0, 100, by=1))
+  res <- run(model, time=seq(0, 365, by=1))
   
   # Get states from results
   res <- res[['states']]
@@ -243,7 +278,7 @@ data <- I_data$value * sum(pops)
 dim(data) <- c(length(I_data$time)/n_bootstrap, n_bootstrap)
 quants <- t(apply(data, 1, quantile, probs=c(0.05, 0.5, 0.95), na.rm=TRUE))
 quants_df <- data.frame(quants)
-quants_df["time"] <- seq(0, 100, by=1)
+quants_df["time"] <- seq(0, 365, by=1)
 
 ggplot(quants_df, aes(x = time)) +
   geom_line(aes(y=X50.)) +
@@ -255,7 +290,7 @@ data <- I_data$value * sum(pops)
 dim(data) <- c(length(I_data$time)/n_bootstrap, n_bootstrap)
 quants <- t(apply(data, 1, quantile, probs=c(0.05, 0.5, 0.95), na.rm=TRUE))
 quants_df <- data.frame(quants)
-quants_df["time"] <- seq(0, 100, by=1)
+quants_df["time"] <- seq(0, 365, by=1)
 
 ggplot(quants_df, aes(x = time)) +
   geom_line(aes(y=X50.)) +
@@ -266,7 +301,7 @@ ggplot(quants_df, aes(x = time)) +
 
 The results show that the while the shape of the epidemic trajectory remains
 similar for all contact matrices in the bootstrap sample, the number of people
-in the I compartment exhibits significant uncertainty, particularly near the
+in the infected compartment exhibits significant uncertainty, particularly near the
 peak of the epidemic.
 
 Next, we perform the uncertainty analysis for the number in the recovered
@@ -275,7 +310,7 @@ compartment at the final time point, for all age groups.
 
 ```{r, fig.width=7, fig.height=5}
 
-data <- filter(all_results, compartment=="R", time==100.0)
+data <- filter(all_results, compartment=="R", time==365.0)
 
 ggplot(data, aes(x=age_range, y=value/pop_fraction), l) +
   geom_boxplot() +
@@ -291,7 +326,7 @@ Finally, we study the effects on death.
 
 ```{r, fig.width=7, fig.height=5}
 
-data <- filter(all_results, compartment=="D", time==100.0)
+data <- filter(all_results, compartment=="D", time==365.0)
 
 ggplot(data, aes(x=age_range, y=value/pop_fraction), l) +
   geom_boxplot() +
@@ -303,4 +338,8 @@ Although younger people are more likely to be infected in this simulation,
 deaths occur mainly in the elderly, due to the age-structured mortality
 parameter $\mu$ described above. The different bootstrap samples of the contact
 matrix result in a wide range in the number of deaths, particularly in the
-75--80 age group.
+70--80 age groups.
+
+
+
+## References

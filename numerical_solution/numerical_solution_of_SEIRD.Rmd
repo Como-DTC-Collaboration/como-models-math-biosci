@@ -1,6 +1,6 @@
 ---
 title: "Numerical solution of SEIRD"
-output: rmarkdown::github_document
+output: rmarkdown::pdf_document
 bibliography: ../references.bib
 vignette: >
   %\VignetteIndexEntry{Numerical solution of SEIRD}
@@ -14,17 +14,13 @@ editor_options:
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  warning = FALSE,
+  message = FALSE
 )
 ```
 
-```{r setup}
-library(comomodels)
-library(deSolve)
-library(ggplot2)
-library(tidyverse)
-library(glue)
-```
+
 
 ## Introduction
 
@@ -38,7 +34,7 @@ applications, SEIRD differential equations do not admit analytical solutions.
 Instead, an approximation of the solution must be obtained using numerical
 methods.
 
-Epidemiological differential equations can be solved easily using simple fixed
+Epidemiological differential equations can be solved straightforwardly using a simple fixed
 time step solver such as the Euler method. In this notebook, we show that when
 such methods are employed without sufficient care in the selection of the time
 step, high error in the numerical solution may occur. We recommend more
@@ -48,6 +44,15 @@ implemented in the [comomodels](https://github.com/Como-DTC-Collaboration/como-m
 This notebook begins with a review of a simple differential equation solver on 
 a toy problem with a known solution. Then, it demonstrates the importance of 
 accurate ODE solvers for comomodel's SEIRD model.
+
+
+```{r setup}
+library(comomodels)
+library(deSolve)
+library(ggplot2)
+library(tidyverse)
+library(glue)
+```
 
 ## Numerical solution of a differential equation using forward Euler
 
@@ -70,36 +75,49 @@ Note that $\Delta t$—the time spacing between adjacent values in the
 approximate solution—is a critical parameter of the Euler method. While 
 calculating the next function value $f_{i+1}$, the Euler method approximates 
 the derivative $g(t, f)$ with the constant value $g(t_i, f_i)$ for the interval
-$(t_i, t_i + \Delta t)$. However, in actuality, $g(t, f)$ presumably varies
-over time—thus, as $\Delta t$ is allowed to get larger, the approximation of
-$g(t, f)$ by a constant value on an interval of width $\Delta t$ becomes more
-prone to error, which ultimately accumulates in the approximate solution and
-causes it to deviate from the true values.
+$(t_i, t_i + \Delta t)$. However, $g(t, f)$ typically varies
+over time—thus, as $\Delta t$ increases, this approximation becomes worse, and this approximation error accumulates in the numerical solution and causes it to deviate from the true values.
 
 However, obtaining a satisfactory solution to the differential equation is not
 as simple as setting $\Delta t$ to some minuscule value, as decreasing the 
-value of $\Delta t$ will cause the runtime of the method to increase, and for
-very small values of $\Delta t$, the runtime may be prohibitive.
+value of $\Delta t$ increases the runtime of the solver, and for
+very small values of $\Delta t$, the runtime may be prohibitive. This is because solving the ODE on
+a time interval of length $T$ requires $T/\Delta t$ iterations of the Forward Euler method, each
+iteration requiring one evaluation of the function $g$—smaller values of $\Delta t$ thus 
+require more calculations of $g$, which are potentially slow.
 
 ### Effect of solver step size on solutions
 
-Before looking at the epidemiological model, we examine the numerical error
-arising from the solver step size in a simple model for which we have an
-analytical solution. The differential equation is:
+We examine the numerical arising from the solver step size in the SIR model. The 
+proportions of susceptible (S), infected (I), and recovered (R) are modelled according to the differential equations:
 
-$$\frac{df}{dt} = 2t;\;\;\;\; f(t=0)=0$$
+$$\frac{dS}{dt} = -\beta S I;$$
 
-We solve this differential equation on the interval from $t=0$ to $t=3$ with
-two different choices of the time step ($\Delta t=1$ and $\Delta t=0.1$). We 
-compare the obtained approximate solutions with the known true solution.
+$$\frac{dI}{dt} = \beta S I - \gamma I;$$
+and 
+$$\frac{dR}{dt} = \gamma I. $$
+
+We focus on the $I$ compartment and consider the early phase of an epidemic where $S>> I$.
+Under these conditions, $S$ is approximately constant and we have for $dI/dt$:
+
+$$\frac{dI}{dt} = (\beta - \gamma) S I;\;\;\;\; I(t=0) = I_0$$
+
+whose analytical solution if $S$ were constant is:
+
+$$I(t) = I_0 \exp((\beta - \gamma) S t) $$
+
+We set $I_0 = 0.001$ and $(\beta - \gamma) S = 1$. We solve this differential equation on
+the interval from $t=0$ to $t=3$ with two different choices of the time step
+($\Delta t=1$ and $\Delta t=0.1$). We compare the obtained approximate
+solutions with the known true solution.
 
 ```{r, fig.width=7, fig.height=5}
 rhs <- function(t, state, params){
-  list(2*t)
+  list(state)
 }
 
 true_solution <- function(t){
-  t ^ 2
+  0.001 * exp(t)
 }
 
 
@@ -108,9 +126,10 @@ dense_times <- seq(0, 3, by=0.1)
 
 
 # Solve using "euler" from deSolve
-# It uses the same times on which output is requested as the solver time points
+# This implementation of the method uses the same times on which output is
+# requested as the solver time points
 numerical_solution_sparse = ode(
-  y=0,
+  y=0.001,
   times=sparse_times,
   parms=NULL,
   func=rhs,
@@ -118,7 +137,7 @@ numerical_solution_sparse = ode(
 )
 
 numerical_solution_dense = ode(
-  y=0,
+  y=0.001,
   times=dense_times,
   parms=NULL,
   func=rhs,
@@ -130,13 +149,13 @@ numerical_solution_dense = ode(
 results_sparse <- data.frame(
   t=numerical_solution_sparse[,1],
   f=numerical_solution_sparse[,2],
-  method="Numerical, Δt=1"
+  method="Numerical, dt=1"
 )
 
 results_dense <- data.frame(
   t=numerical_solution_dense[,1],
   f=numerical_solution_dense[,2],
-  method="Numerical, Δt=0.1"
+  method="Numerical, dt=0.1"
 )
 
 results_true <- data.frame(
@@ -151,7 +170,10 @@ ggplot() +
              aes(x=t, y=f, color=method),
              show.legend=F) +
   geom_line(data=rbind(results_sparse, results_dense, results_true),
-            aes(x=t, y=f, color=method))
+            aes(x=t, y=f, color=method)) +
+  scale_color_brewer(palette = "Dark2") + 
+  scale_fill_brewer(palette="Dark2") +
+  ylab('I(t)')
 ```
 
 We observe that the large step size of $\Delta t=1$ causes significant
@@ -164,12 +186,20 @@ apparent.
 
 ## Effect of solver step size on the SEIRD model
 
-First, we load the SEIRD model from comomodels, and specify plausible parameter
-values and initial conditions.
+First, we load the SEIRD model from comomodels, and specify plausible parameter values and initial conditions.
 
 ```{r}
 model <- comomodels::SEIRD()
-transmission_parameters(model) <- list(beta=1.0, kappa=0.9, gamma=0.5, mu=0.1)
+
+# Covid delta parameters
+R0 <- 5
+ifr <- 0.0066
+kappa <- 1 / 3.7
+gamma <- 1/7 * (1-ifr)
+mu <- 1/7 * ifr
+beta <- (mu + gamma) * R0
+
+transmission_parameters(model) <- list(beta=beta, kappa=kappa, gamma=gamma, mu=mu)
 initial_conditions(model) <- list(S0=0.999, E0=0, I0=0.001, R0=0)
 ```
 
@@ -178,10 +208,11 @@ different choices for the solver step size. The first is a daily time step,
 which naively might be considered an acceptable default choice, given that we 
 are interested in simulating daily cases and deaths. We also consider a much 
 smaller time step of 0.001 days, for which we know that the solution is 
-sufficiently accurate (see the following section for further details on 
-obtaining accurate numerical solutions).
+sufficiently accurate (see the section "Adaptive step size methods" below for
+further details on obtaining numerical solutions with a desired degree of 
+accuracy).
 
-```{r, fig.width=7, fig.height=5}
+```{r, fig.width=11, fig.height=5}
 times_daily <- seq(0, 50, by=1)
 solution_daily <- run(model, times_daily, solve_method="euler")
 changes_daily <- solution_daily$changes
@@ -213,25 +244,24 @@ for (t in times_daily) {
 changes_dense <- changes_dense[order(changes_dense$compartment, changes_dense$time),]
 
 # Save the labels and combine for plotting
-changes_dense$method <- "Δt=0.001 Day (accurate)"
-changes_daily$method <- "Δt=1 Day"
+changes_dense$method <- "dt=0.001 Day (accurate)"
+changes_daily$method <- "dt=1 Day"
 all_changes <- rbind(changes_dense, changes_daily)
 
-
-ggplot(subset(all_changes, all_changes[,3]=="Incidence"), 
+ggplot(subset(all_changes, all_changes[,3]=="Deaths" | all_changes[,3]=="Incidence"), 
        aes(x = time, y = value, fill = method)) +
   geom_bar(stat="identity", position = position_dodge()) +
-  labs(title="Incidence")
-
-ggplot(subset(all_changes, all_changes[,3]=="Deaths"), 
-       aes(x = time, y = value, fill = method)) +
-  geom_bar(stat="identity", position = position_dodge()) +
-  labs(title="Deaths")
+  facet_wrap(~ all_changes[,3], scales="free") +
+  scale_color_brewer(palette = "Dark2") + 
+  scale_fill_brewer(palette="Dark2")
 ```
 These results indicate that for the SEIRD model with these parameters, a daily
 step size is much too large to obtain accurate results. The daily step size
 causes the date of the peak of the epidemic (for both incident cases and
-deaths) to be overestimated by several days.
+deaths) to be overestimated by several days, due to the inaccuracy of the 
+constant derivative assumption introduced by the Euler method.
+
+
 
 ## Differential equations versus difference equations
 
@@ -241,7 +271,8 @@ _differential_ equation,
 $$f_{i+1} = f_i + \Delta t g(t_i, f_i),$$
 
 is identical with a typical definition of a _difference_ equation of the sort 
-used in multiple fields of computational biology, including epidemiology.
+used in multiple fields of computational biology, including epidemiology (see
+[@izzo2009general]).
 
 Thus, what we have up till now treated as numerical error arising from the
 forward Euler method may alternatively be viewed as the discrepancy between an
@@ -251,8 +282,7 @@ that this discrepancy is not negligible. While difference equations can be
 valid and tenable models for certain phenomena, we see that a daily SEIRD
 difference equation cannot be considered equivalent to the original SEIRD
 differential equation model, that is, the same parameter values can cause 
-substantially different outputs from each model.
-
+substantially different outputs from each model. Difference equations tend to be a more appropriate modelling framework when considering non-overlapping generations, which is not generally the case in epidemiological modelling.
 
 ## Adaptive step size methods
 
@@ -264,26 +294,28 @@ methods suffer because:
 1. To obtain an accurate solution, the solver step size must be set to some
 small value, but it is often unknown how small this value must be.
 2. When the solver step size is set to a small value, the method may be
-unpleasantly slow.
+impractically slow.
 
 Both of these defects are addressed by adaptive step size methods. In these,
 the user specifies not a step size but a _tolerance_—some relative or absolute
-number which the local error in the approximate solution should not exceed. 
+value which the local error in the approximate solution should not exceed. 
 Then, the solver algorithm selects the appropriate step size in order for the
-solution to meet this tolerance. Adaptive solvers are able to vary the step
+solution to meet this tolerance, using the theoretical error properties of the 
+solver and various techniques for step size adaptation. Adaptive solvers are able to vary the step
 size over the course of the solve, selecting very small values only in those
-regions of time where this is necessary, and otherwise increasing the step size
+regions of time where this is necessary, such as where the solution is 
+changing rapidly over time, and otherwise increasing the step size
 to larger values. For this reason, they are much more efficient than fixed step
-solvers.
+solvers [@gautschi2012numerical].
 
 A wide variety of approaches to step size adaptation have been proposed. At 
-each step, these methods typically use some heuristic to estimate the error
+each step, these methods typically use some estimator of the error
 introduced at that time step, and then select roughly the largest possible step
 such that the threshold imposed by the user-supplied tolerance is not exceeded.
 
 Although adaptive step size solvers are challenging to implement, it is often
 possible to rely on existing implementations. In R, a wide selection of 
-adaptive step size solvers are provided by the deSolve package. The comomodels
+adaptive step size solvers are provided by the deSolve package [@soetaert2010solving]. The comomodels
 library uses deSolve to handle numerical solution of the systems of ODEs that 
 arise in compartmental epidemiology models, giving users easy access to
 efficient adaptive step size solvers. In comomodels, default values
@@ -298,7 +330,7 @@ solver with a fixed, small step size to that of the LSODA adaptive step size
 solver.
 
 
-```{r, fig.width=7, fig.height=5}
+```{r, fig.width=11, fig.height=5}
 times_dense <- seq(0, 50, by=0.001)
 print("Timing for Euler (fixed step):")
 ptm <- proc.time()
@@ -334,24 +366,20 @@ for (t in times_daily) {
 
 # Save the labels and combine for plotting
 changes_adapt <- solution_adapt$changes
-changes_dense$method <- "Euler, Δt=0.001 Day"
+changes_dense$method <- "Euler, dt=0.001 Day"
 changes_adapt$method <- "LSODA (adaptive step)"
 all_changes <- rbind(changes_dense, changes_adapt)
 
-
-ggplot(subset(all_changes, all_changes[,3]=="Incidence"), 
+ggplot(subset(all_changes, all_changes[,3]=="Deaths" | all_changes[,3]=="Incidence"), 
        aes(x = time, y = value, fill = method)) +
   geom_bar(stat="identity", position = position_dodge()) +
-  labs(title="Incidence")
-
-ggplot(subset(all_changes, all_changes[,3]=="Deaths"), 
-       aes(x = time, y = value, fill = method)) +
-  geom_bar(stat="identity", position = position_dodge()) +
-  labs(title="Deaths")
+  facet_wrap(~ all_changes[,3], scales="free") +
+  scale_color_brewer(palette = "Dark2") + 
+  scale_fill_brewer(palette="Dark2")
 
 ```
 Both methods achieve the same accurate solution. However, for the LSODA solver,
-no fiddling with step sizes is necessary: we merely provide the time points at 
+it is not necessary to manually select a time step: we merely provide the time points at 
 which we want to access the solution (daily), and the solver handles the
 selection of the step sizes. We also note the significant speed advantage of
 the LSODA solver, which may be more than 50 times faster (the actual runtimes
@@ -359,11 +387,152 @@ will be system dependent).
 
 Adaptive solvers are not infallible. On highly challenging differential
 equations, and when supplied with insufficient tolerances for the simulation or
-inference task at hand, they may be responsible for errors just as pernicious
-as those arising from fixed step solvers with too large step sizes. However,
+inference task at hand, they may cause problems for simulation and inference. However,
 for the simulation of compartmental epidemiological models such as those
-covered by the comomodels package, we highly recommend the use of adaptive
-solvers such as LSODA (the default choice of solver in comomodels) for
-speed and accuracy.
+covered by the comomodels package, adaptive solvers such as LSODA (the default choice of solver in
+comomodels) generally perform better in terms of solution fidelity and speed.
+
+
+## Discontinuities in the RHS (interventions)
+
+Differential equations of the form
+
+$$\frac{df}{dt} = g(t, f)$$
+
+where $g$ is discontinuous present further challenges to both adaptive and fixed step size methods, whose error properties (and, for adaptive step size methods, the algorithms used to determine the time steps) typically make assumption such as differentiability and Lipschitz continuity of $g$.
+
+In the epidemiological models of the sort described by comomodels, discontinuities of $g$ in time are possible, most notably in the SEIRDV model where step function interventions may be used to specify the rate of vaccination.
+
+Some of the numerical methods that can be used to increase efficiency and decrease error in the case of discontinuous $g$ are:
+
+1. Divide the time interval into sets where $g$ is continuous, and solve the ODE on each set separately.
+2. Replace the discontinuous $g$ with a smooth approximation, and use a standard solver.
+
+The second approach is adopted by the SEIRDV model, as a tanh approximation to the step function is used.
+
+First, we study the effects of a discontinuity in the vaccination rate in the 
+SEIRDV model without a tanh approximation. The vaccination rate is set to 0.15 from $t=4.75$ to $t=9.75$, and 0
+elsewhere. The model is solved using an Euler solver with a large time step 
+of 0.5 days, once without any consideration of the discontinuities (green curve) and once
+with solver time steps inserted at the discontinuities (blue curve, method 1 above). These 
+results are compared to an accurate (but potentially inefficient) solution
+obtained using the LSODA solver. The value of the $I$ compartment is shown over time, and the time period of vaccination is shaded in gray.
+
+```{r, fig.width=8, fig.height=5}
+model <- SEIRDV()
+# Select transmission parameters where the effect of the discontinuity can be 
+# observed on a short time scale of 20 days
+params <- list(beta=1, kappa=0.9, gamma=0.5, mu=0.1, nu=0.4, delta_V=0.15, delta_R=0.05)
+transmission_parameters(model) <- params
+initial_conditions(model) <- list(S0=0.99, E0=0, I0=0.01, R0=0, V0=0)
+intervention_parameters(model) <- list(starts=c(4.75),
+                                       stops=c(9.75),
+                                       coverages=c(1),
+                                       tanh_slopes=1000)
+
+times <- seq(0, 20, by = 0.5)
+df1 <- run(model, times, solve_method="lsoda")$states
+df1$method = "Accurate (LSODA)"
+
+solver_times <- seq(0, 20, by=0.5)
+df2 <- run(model, solver_times, solve_method="euler")$states
+df2$method = "Euler, dt=0.5 day"
+
+
+solver_times <- sort(c(solver_times, 4.75, 9.75))
+df3 <- run(model, solver_times, solve_method="euler")$states
+df3$method = "Euler, dt=0.5 day, start/stop at discon"
+
+df <- rbind(df1, df3, df2)
+
+ggplot(subset(df, df[,3]=="I"), 
+       aes(x = time, y = value)) +
+  geom_rect(aes(xmin=4.75,
+                xmax=9.75,
+                ymin = -Inf,
+                ymax = Inf), fill = 'gray', alpha = 0.025) +
+  geom_line(aes(color=method)) +
+  ylab('I compartment')
+
+```
+
+Both Euler solvers experience large error due to the large step size. However,
+additional error caused by the discontinuous $\delta_V$ is apparent, as, after the
+vaccination period begins, the Euler method without consideration of the discontinuity
+starts to deviate more drastically from the true solution.
+
+An alternative approach is to smooth the discontinuity. In comomodels SEIRDV,
+this can be performed by supplying an appropriate slope to the tanh function
+that is used to smooth the $\delta_V$ profile:
+
+```{r, fig.width=8, fig.height=5}
+int_parms <- InterventionParameters(start=c(4.75),
+                                    stop=c(9.75),
+                                    coverage=c(1),
+                                    tanh_slope=1000)
+
+sim_parms <- SimulationParameters(start=0, stop=20, tstep = 0.1)
+i1 <- intervention_protocol(int_parms, sim_parms)
+i1$method <- "Original profile"
+
+int_parms2 <- InterventionParameters(start=c(4.75),
+                                    stop=c(9.75),
+                                    coverage=c(1),
+                                    tanh_slope=2)
+sim_parms2 <- SimulationParameters(start=0, stop=20, tstep = 0.1)
+i2 <- intervention_protocol(int_parms2, sim_parms2)
+i2$method <- "tanh-smoothed profile"
+
+ggplot(rbind(i1, i2), aes(x=time, y=coverage, color=method)) +
+  geom_line() +
+  scale_color_brewer(palette = "Dark2") +
+  labs(x = "time (days)", y = "level of intervention")
+```
+Next, we compare the effects of the tanh smoothing on the simulated incidences.
+The value of the $I$ compartment is shown over time, and the time period of vaccination is shaded in gray.
+
+```{r, fig.width=8, fig.height=5}
+model <- SEIRDV()
+params <- list(beta=1, kappa=0.9, gamma=0.5, mu=0.1, nu=0.4, delta_V=0.15, delta_R=0.05)
+transmission_parameters(model) <- params
+initial_conditions(model) <- list(S0=0.99, E0=0, I0=0.01, R0=0, V0=0)
+intervention_parameters(model) <- list(starts=c(4.75),
+                                       stops=c(9.75),
+                                       coverages=c(1),
+                                       tanh_slopes=1000)
+
+times <- seq(0, 20, by = 0.5)
+df1 <- run(model, times, solve_method="lsoda")$states
+df1$method = "Without tanh smoothing"
+
+
+intervention_parameters(model) <- list(starts=c(4.75),
+                                       stops=c(9.75),
+                                       coverages=c(1),
+                                       tanh_slopes=2)
+
+times <- seq(0, 20, by = 1)
+df2 <- run(model, times, solve_method="lsoda")$states
+df2$method = "With tanh smoothing"
+
+df <- rbind(df1, df2)
+
+ggplot(subset(df, df[,3]=="I"), 
+       aes(x = time, y = value)) +
+  geom_rect(aes(xmin=4.75,
+                xmax=9.75,
+                ymin = -Inf,
+                ymax = Inf), fill = 'gray', alpha = 0.025) +
+  geom_line(aes(color=method)) +
+  ylab('I compartment')
+```
+Some slight differences are observed as a result of the tanh smoothing. Although the
+tanh smoothing does change the model behavior, in most applications of epidemiological
+modelling the smoothed version of the model is not only more tractable for numerical
+solvers but also more closely resembles realistic situations, where policies and
+interventions that change the parameters of the model take some time to be implemented.
+
+Further details and a general treatment may be found in [@stewart2011dynamics], Chapter 8.
+
 
 ## References
