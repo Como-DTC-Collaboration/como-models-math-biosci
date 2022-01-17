@@ -210,7 +210,6 @@ LogLikelihoodFn <- function(parameters, model=SEIRD(), inc_numbers=0, death_numb
 profilelikelihood_opt <- function(profile_parameters, range_transmission,
                                   likelihoodfn, synthetic_data, reltol=1e-6){
   # Set up structure
-  previous_param <- rep(0, length(profile_parameters))
   profile_likelihood <- data.frame(parameter=character(), fixed_value=double(),
                                    likelihood_value=double())
   profile_likelihood$parameter <- as.character(profile_likelihood$parameter)
