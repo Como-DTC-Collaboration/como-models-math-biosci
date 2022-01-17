@@ -186,12 +186,10 @@ apparent.
 
 ## Effect of solver step size on the SEIRD model
 
-First, we load the SEIRD model from comomodels, and specify plausible parameter
-values and initial conditions.
+First, we load the SEIRD model from comomodels, and specify plausible parameter values and initial conditions.
 
 ```{r}
 model <- comomodels::SEIRD()
-transmission_parameters(model) <- list(beta=1.0, kappa=0.9, gamma=0.5, mu=0.1)
 
 # Covid delta parameters
 R0 <- 5
