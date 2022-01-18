@@ -36,7 +36,7 @@
 \IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
 \IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
 \hypersetup{
-  pdftitle={SEIRD contact matrix},
+  pdftitle={The importance of uncertainty in contact patterns},
   hidelinks,
   pdfcreator={LaTeX via pandoc}}
 \urlstyle{same} % disable monospaced font for URLs
@@ -122,7 +122,7 @@
 \newcommand{\CSLRightInline}[1]{\parbox[t]{\linewidth - \csllabelwidth}{#1}\break}
 \newcommand{\CSLIndent}[1]{\hspace{\cslhangindent}#1}
 
-\title{SEIRD contact matrix}
+\title{The importance of uncertainty in contact patterns}
 \author{}
 \date{\vspace{-2.5em}}
 
@@ -132,17 +132,50 @@
 \hypertarget{introduction}{%
 \subsection{Introduction}\label{introduction}}
 
-Age-structured compartmental models such as the SEIRD implemented in
-comomodels use contact matrices to specify the spread of a disease
-within and between age groups. Given a contact matrix \(C\), each
-element \(C_{i,j}\) indicates the expected number of contacts someone
+For COVID-19, age is a major risk factor for severe disease, so
+accounting for the contact patterns of different age groups is
+particularly important for determining risk. Age-structured
+compartmental models, such as the \texttt{SEIRDAge} model in the
+\texttt{comomodels} package, use contact matrices to characterise these
+age-specific patterns.
+
+\texttt{comomodels} includes estimates of contact matrices for 152
+countries (Prem et al. (2021); with details available in the data
+documentation). For each country, a contact matrix is provided for four
+different locations where people may mix with others: at home, at
+school, at work, and elsewhere. For a contact matrix, \(C\), each
+element, \(C_{i,j}\), indicates the expected number of contacts someone
 from age group \(i\) has per day with people from age group \(j\).
 
-Comomodels includes estimates of the contact matrix for each country
-((Prem et al. 2021); with full details available in the data
-documentation). Separate matrices are available for contacts at home,
-work, school, and other. Below, we generate a plot of the contact
-matrices.
+Due to the data collection method used to construct these matrices,
+contact matrices are generally not symmetric (Prem et al. 2021). Contact
+matrices are constructed from survey data where participants in the
+study note their contacts throughout the day and include information on
+the age and location of the contact. The average number of contacts an
+individual of age group \(i\) has with an individual of age group \(j\)
+is:
+
+Because \(C_{j,i}\) has the size of group \(j\) as its denominator,
+typically \(C_{i,j}\neq C_{j,i}\) due to demographic patterns. Because
+demographic patterns affect contact matrices, a contact matrix estimated
+for a given country should not be repurposed for another country without
+due care (Arregui et al. 2018).
+
+In this tutorial, we show how contact matrices can be used within
+\texttt{comomodels} to simulate infection dynamics using the
+age-structured \texttt{SEIRD}. We then show how the considerable
+uncertainty inherent in a set of contact matrix estimates generates
+commensurate uncertainty in key model outputs.
+
+\hypertarget{contact-patterns-for-the-united-kingdom}{%
+\subsection{Contact patterns for the United
+Kingdom}\label{contact-patterns-for-the-united-kingdom}}
+
+We start by visualizing the four contact matrices for a specific
+country, in this case the United Kingdom (UK). First, we load all
+contact matrices for each location (home, school, work and other) and
+the population demographics of each country which are included in
+\texttt{comomodels}.
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -150,11 +183,7 @@ matrices.
 \FunctionTok{library}\NormalTok{(tidyverse)}
 \FunctionTok{library}\NormalTok{(ggplot2)}
 \FunctionTok{library}\NormalTok{(socialmixr)}
-\end{Highlighting}
-\end{Shaded}
 
-\begin{Shaded}
-\begin{Highlighting}[]
 \NormalTok{contact\_home }\OtherTok{\textless{}{-}}\NormalTok{ comomodels}\SpecialCharTok{::}\NormalTok{contact\_home}
 \NormalTok{contact\_work }\OtherTok{\textless{}{-}}\NormalTok{ comomodels}\SpecialCharTok{::}\NormalTok{contact\_work}
 \NormalTok{contact\_school }\OtherTok{\textless{}{-}}\NormalTok{ comomodels}\SpecialCharTok{::}\NormalTok{contact\_school}
@@ -163,10 +192,20 @@ matrices.
 \end{Highlighting}
 \end{Shaded}
 
+We then select a specific country for which we want to visualize the
+contact matrices, and plot all four contact matrices for this country.
+In the contact matrices provided by Prem et al. (2021), the oldest age
+group is for 75-80 year olds; in what follows, we assume that the
+contact patterns are the same for individuals aged 80+. This is likely a
+strong assumption, since it neglects the change of circumstances that
+may occur for many in this age group. But the change in cirumstances may
+act to either increase or decrease rates of contacts, so we assuming
+contact patterns remain the same is a reasonable hypothesis.
+
 \begin{Shaded}
 \begin{Highlighting}[]
 \CommentTok{\# reformat matrices for plotting}
-\NormalTok{ages }\OtherTok{\textless{}{-}} \FunctionTok{seq}\NormalTok{(}\DecValTok{0}\NormalTok{, }\DecValTok{80}\NormalTok{, }\DecValTok{5}\NormalTok{)}
+\NormalTok{ages }\OtherTok{\textless{}{-}} \FunctionTok{seq}\NormalTok{(}\DecValTok{0}\NormalTok{, }\DecValTok{120}\NormalTok{, }\DecValTok{5}\NormalTok{)}
 \NormalTok{age\_names }\OtherTok{\textless{}{-}} \FunctionTok{vector}\NormalTok{(}\AttributeTok{length =} \DecValTok{16}\NormalTok{)}
 \ControlFlowTok{for}\NormalTok{(i }\ControlFlowTok{in} \FunctionTok{seq\_along}\NormalTok{(age\_names)) \{}
 \NormalTok{  age\_names[i] }\OtherTok{\textless{}{-}} \FunctionTok{paste0}\NormalTok{(ages[i], }\StringTok{"{-}"}\NormalTok{, ages[i }\SpecialCharTok{+} \DecValTok{1}\NormalTok{])}
@@ -182,10 +221,14 @@ matrices.
     \FunctionTok{mutate}\NormalTok{(}\AttributeTok{age\_infectee=}\FunctionTok{fct\_relevel}\NormalTok{(age\_infectee, age\_names))}
 \NormalTok{\}}
 
-\NormalTok{c\_home }\OtherTok{\textless{}{-}} \FunctionTok{format\_matrix}\NormalTok{(contact\_home}\SpecialCharTok{$}\StringTok{"United Kingdom"}\NormalTok{, age\_names) }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{mutate}\NormalTok{(}\AttributeTok{type=}\StringTok{"home"}\NormalTok{)}
-\NormalTok{c\_work }\OtherTok{\textless{}{-}} \FunctionTok{format\_matrix}\NormalTok{(contact\_work}\SpecialCharTok{$}\StringTok{"United Kingdom"}\NormalTok{, age\_names) }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{mutate}\NormalTok{(}\AttributeTok{type=}\StringTok{"work"}\NormalTok{)}
-\NormalTok{c\_school }\OtherTok{\textless{}{-}} \FunctionTok{format\_matrix}\NormalTok{(contact\_school}\SpecialCharTok{$}\StringTok{"United Kingdom"}\NormalTok{, age\_names) }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{mutate}\NormalTok{(}\AttributeTok{type=}\StringTok{"school"}\NormalTok{)}
-\NormalTok{c\_other }\OtherTok{\textless{}{-}} \FunctionTok{format\_matrix}\NormalTok{(contact\_other}\SpecialCharTok{$}\StringTok{"United Kingdom"}\NormalTok{, age\_names) }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{mutate}\NormalTok{(}\AttributeTok{type=}\StringTok{"other"}\NormalTok{)}
+\NormalTok{c\_home }\OtherTok{\textless{}{-}} \FunctionTok{format\_matrix}\NormalTok{(contact\_home}\SpecialCharTok{$}\StringTok{"United Kingdom"}\NormalTok{, age\_names) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{type=}\StringTok{"home"}\NormalTok{)}
+\NormalTok{c\_work }\OtherTok{\textless{}{-}} \FunctionTok{format\_matrix}\NormalTok{(contact\_work}\SpecialCharTok{$}\StringTok{"United Kingdom"}\NormalTok{, age\_names) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{type=}\StringTok{"work"}\NormalTok{)}
+\NormalTok{c\_school }\OtherTok{\textless{}{-}} \FunctionTok{format\_matrix}\NormalTok{(contact\_school}\SpecialCharTok{$}\StringTok{"United Kingdom"}\NormalTok{, age\_names) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{type=}\StringTok{"school"}\NormalTok{)}
+\NormalTok{c\_other }\OtherTok{\textless{}{-}} \FunctionTok{format\_matrix}\NormalTok{(contact\_other}\SpecialCharTok{$}\StringTok{"United Kingdom"}\NormalTok{, age\_names) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{type=}\StringTok{"other"}\NormalTok{)}
 
 \NormalTok{c\_all }\OtherTok{\textless{}{-}}\NormalTok{ c\_home }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{bind\_rows}\NormalTok{(c\_work) }\SpecialCharTok{\%\textgreater{}\%} 
@@ -194,90 +237,97 @@ matrices.
 
 \CommentTok{\# plot all}
 \NormalTok{c\_all }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{age\_infector, }\AttributeTok{y=}\NormalTok{age\_infectee, }\AttributeTok{fill=}\NormalTok{value)) }\SpecialCharTok{+}
-  \FunctionTok{geom\_tile}\NormalTok{() }\SpecialCharTok{+}
-  \FunctionTok{scale\_fill\_viridis\_c}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{age\_infector, }\AttributeTok{y=}\NormalTok{age\_infectee, }\AttributeTok{fill=}\NormalTok{value)) }\SpecialCharTok{+} \FunctionTok{geom\_tile}\NormalTok{() }\SpecialCharTok{+}
   \FunctionTok{facet\_wrap}\NormalTok{(}\SpecialCharTok{\textasciitilde{}}\NormalTok{type) }\SpecialCharTok{+}
-  \FunctionTok{theme}\NormalTok{(}\AttributeTok{axis.text.x =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{angle=}\DecValTok{90}\NormalTok{, }\AttributeTok{vjust=}\FloatTok{0.5}\NormalTok{, }\AttributeTok{hjust=}\DecValTok{1}\NormalTok{))}
+  \FunctionTok{theme}\NormalTok{(}\AttributeTok{axis.text.x =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{angle=}\DecValTok{90}\NormalTok{, }\AttributeTok{vjust=}\FloatTok{0.5}\NormalTok{, }\AttributeTok{hjust=}\DecValTok{1}\NormalTok{)) }\SpecialCharTok{+}
+  \FunctionTok{scale\_fill\_viridis\_c}\NormalTok{(}\StringTok{"contacts"}\NormalTok{,}
+                       \AttributeTok{trans=}\StringTok{"sqrt"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{xlab}\NormalTok{(}\StringTok{"age group of infector"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{ylab}\NormalTok{(}\StringTok{"age group of infectee"}\NormalTok{)}
 \end{Highlighting}
 \end{Shaded}
 
 \includegraphics{SEIRD_contact_matrix_files/figure-latex/unnamed-chunk-3-1.pdf}
 
-While it is possible to construct location-based transmission models, in
-this study we consider only age structure. Thus, we obtain the total
-contact matrix for the age-structured SEIRD model by summing the four
-location specific contact matrices. Further details, including an
-explanation of the model equations, can be found in the
-SEIRD\_age\_structured vignette in the comomodels package:
-\url{https://github.com/Como-DTC-Collaboration/como-models/blob/main/vignettes/SEIRD_age_structured.Rmd}
+The availability of contact matrices for different locations facilitates
+simulation of age-structured transmission models across geographies. The
+current set of age-structured models in \texttt{comomodels} do not
+include location-specific infections. Thus, we obtain a single contact
+matrix for the age-structured models by summing the four
+location-specific contact matrices:
+
+\[
+C_{i,j} = C_{i,j}^{\text{home}} + C_{i,j}^{\text{school}} + C_{i,j}^{\text{work}} + C_{i,j}^{\text{other}}.
+\] It is possible, however, to investigate how changes to contacts
+occurring at a particular class of location affects outputs: simply by
+perturbing a particular contact matrix in the above sum.
 
 \hypertarget{uncertainty-in-the-contact-matrix}{%
 \subsection{Uncertainty in the contact
 matrix}\label{uncertainty-in-the-contact-matrix}}
 
-Typically, when performing simulations of the age-structured SEIR model,
-or inference for the parameters of the model, the contact matrix is
-provided as a fixed input. However, using fixed values for the contact
-matrix neglects the uncertainty which may be present in the contact
-data.
+Typically, when performing simulations of the age-structured SEIRD
+model, or inference for the parameters of the model, the contact matrix
+is provided as a fixed input. But using fixed values for the contact
+matrix neglects the uncertainty inherent in these model inputs.
 
 The purpose of the remainder of this notebook is to investigate the
-sensitivity of the outputs of the age-structured SEIRD model to the
-values of the contact matrix. Using bootstrap samples which represent
-the uncertainty in the contact matrix, we show significant uncertainty
-in the numbers of infected individuals. The bootstrap algorithm works by
-repeatedly selecting random samples (with replacement) of the survey
-respondents, and using the sample to calculate a particular contact
-matrix. Each sample yields a potentially different contact matrix, and
-this set of contact matrices reveals something of the uncertainty in its
-values.
+sensitivity of the outputs of the age-structured SEIRD model (i.e.~the
+\texttt{SEIRDAge} model) to the values of the contact matrix. Using
+bootstrap samples to represent the uncertainty in the contact matrix, we
+show that there is significant uncertainty in the numbers of infected
+individuals. The bootstrap algorithm works by selecting a random sample
+(with replacement) of the survey respondents, which it then uses to
+construct a contact matrix. Across many such samples, the set of contact
+matrices provides a measure of uncertainty in the number of daily
+contacts across different age groups.
 
 \hypertarget{accuracy-of-uncertainty-estimates-produced-by-the-bootstrapping-methods}{%
 \subsection{Accuracy of uncertainty estimates produced by the
 bootstrapping
 methods}\label{accuracy-of-uncertainty-estimates-produced-by-the-bootstrapping-methods}}
 
-The bootstrap algorithm is an easy way to obtain some idea of the
-uncertainty in the contact matrix. However, due to the simplicity of the
-procedure, its results should be treated as mere approximations of the
-true uncertainty that may exist in the contact matrix. In particular,
-the bootstrap algorithm does not account for the possibility that the
-contact data in the original survey is unrepresentative of the actual
-population. For example, if contact data is collected primarily from an
+The bootstrap algorithm provides an estimate of contact matrix
+uncertainty. There are a range of factors which this approach to
+uncertainty quantification does not consider, however. The algorithm
+assumes that the original survey from which the contact matrices are
+calculated is representative of the underlying population, which may not
+be true. For example, if contact data are collected primarily from an
 urban area in a country whose population is mostly rural, the resulting
-contact matrices may be inaccurate for the country, and the bootstrap
-cannot account for the lack of information in the original data.
+contact matrices would likely be unrepresentative of the country as a
+whole. (Indeed, if the two contact matrices differ so markedly, it may
+be preferable to model the urban and rural populations separately, as in
+the \texttt{SEIRD\_RU} model.) The bootstrap algorithm does not allow
+for such biases in quantifying uncertainty, so likely understates true
+uncertainty.
 
 \hypertarget{bootstrap-samples-of-contact-matrices}{%
 \subsection{Bootstrap samples of contact
 matrices}\label{bootstrap-samples-of-contact-matrices}}
 
-We obtain samples of the contact matrix using the socialmixr library
-which accesses the POLYMOD data. This library allows us to generate
-bootstrap samples of the contact matrix for countries covered by the
-study. The first step is to generate 200 of these samples for the
-contact matrix in the United Kingdom.
+We obtain bootstrapped samples of the contact matrix using the
+\texttt{socialmixr} library which accesses the POLYMOD data Mossong et
+al. (2017). We base our analysis on the UK and generate 200 contact
+matrix draws to represent its uncertainty.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-
 \CommentTok{\# Define age groups and names}
-\NormalTok{ages }\OtherTok{\textless{}{-}} \FunctionTok{seq}\NormalTok{(}\DecValTok{0}\NormalTok{, }\DecValTok{80}\NormalTok{, }\DecValTok{5}\NormalTok{)}
+\NormalTok{ages }\OtherTok{\textless{}{-}} \FunctionTok{seq}\NormalTok{(}\DecValTok{0}\NormalTok{, }\DecValTok{120}\NormalTok{, }\DecValTok{5}\NormalTok{)}
 \NormalTok{age\_names }\OtherTok{\textless{}{-}} \FunctionTok{vector}\NormalTok{(}\AttributeTok{length =} \DecValTok{16}\NormalTok{)}
 \ControlFlowTok{for}\NormalTok{(i }\ControlFlowTok{in} \FunctionTok{seq\_along}\NormalTok{(age\_names)) \{}
 \NormalTok{  age\_names[i] }\OtherTok{\textless{}{-}} \FunctionTok{paste0}\NormalTok{(ages[i], }\StringTok{"{-}"}\NormalTok{, ages[i }\SpecialCharTok{+} \DecValTok{1}\NormalTok{])}
 \NormalTok{\}}
 
-\CommentTok{\# Get population data}
+\CommentTok{\# Get population data: merge ages 75+}
 \NormalTok{pops }\OtherTok{\textless{}{-}}\NormalTok{ population[population}\SpecialCharTok{$}\NormalTok{country }\SpecialCharTok{==} \StringTok{"United Kingdom"}\NormalTok{, ]}\SpecialCharTok{$}\NormalTok{pop}
-\NormalTok{pop\_fraction }\OtherTok{\textless{}{-}}\NormalTok{ pops}\SpecialCharTok{/}\FunctionTok{sum}\NormalTok{(pops)}
+\NormalTok{pop\_fraction }\OtherTok{\textless{}{-}}\NormalTok{ pops }\SpecialCharTok{/} \FunctionTok{sum}\NormalTok{(pops)}
 \NormalTok{pop\_fraction[}\DecValTok{16}\NormalTok{] }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(pop\_fraction[}\DecValTok{16}\SpecialCharTok{:}\DecValTok{21}\NormalTok{])}
 \NormalTok{pop\_fraction }\OtherTok{\textless{}{-}}\NormalTok{ pop\_fraction[}\DecValTok{1}\SpecialCharTok{:}\DecValTok{16}\NormalTok{]}
 \NormalTok{n\_ages }\OtherTok{\textless{}{-}} \DecValTok{16}
 
 \CommentTok{\# Load the contact matrix data from POLYMOD and get bootstrap samples}
-\NormalTok{n\_bootstrap }\OtherTok{\textless{}{-}} \DecValTok{200}
+\NormalTok{n\_bootstrap }\OtherTok{\textless{}{-}} \DecValTok{10}
 \FunctionTok{data}\NormalTok{(polymod)}
 \NormalTok{polymod\_data }\OtherTok{\textless{}{-}} \FunctionTok{contact\_matrix}\NormalTok{(polymod,}
                                \AttributeTok{n=}\NormalTok{n\_bootstrap,}
@@ -285,68 +335,60 @@ contact matrix in the United Kingdom.
                                \AttributeTok{age.limits=}\NormalTok{ages)}
 
 \CommentTok{\# Get the first element of the list, which contains the matrices}
+\CommentTok{\# In general, bootstrap sampling fails for the 80+ age group,}
+\CommentTok{\# so we assume contact patterns remain same as for 75{-}80 y.o.s}
 \NormalTok{matrices }\OtherTok{\textless{}{-}}\NormalTok{ polymod\_data[}\StringTok{"matrices"}\NormalTok{][[}\DecValTok{1}\NormalTok{]]}
 \end{Highlighting}
 \end{Shaded}
 
 First, we inspect the range of values in the sampled contact matrices.
-In the plot below, we look at the distribution of the diagonal elements
-of the matrix for each age group.
+In the plot below, we show the variation in within-age-group daily
+contacts: i.e.~we plot the samples of the diagonal elements of the
+contact matrix.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-
 \NormalTok{contacts\_same\_age }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{()}
 \NormalTok{ages\_list }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{()}
 \ControlFlowTok{for}\NormalTok{ (i }\ControlFlowTok{in} \DecValTok{1}\SpecialCharTok{:}\NormalTok{n\_bootstrap)\{}
-\NormalTok{  contacts\_same\_age }\OtherTok{\textless{}{-}} \FunctionTok{append}\NormalTok{(contacts\_same\_age, }\FunctionTok{diag}\NormalTok{(matrices[[i]][[}\DecValTok{1}\NormalTok{]])[}\DecValTok{1}\SpecialCharTok{:}\DecValTok{16}\NormalTok{])}
+\NormalTok{  diags }\OtherTok{\textless{}{-}} \FunctionTok{diag}\NormalTok{(matrices[[i]][[}\DecValTok{1}\NormalTok{]])[}\DecValTok{1}\SpecialCharTok{:}\DecValTok{16}\NormalTok{]}
+\NormalTok{  contacts\_same\_age }\OtherTok{\textless{}{-}} \FunctionTok{append}\NormalTok{(contacts\_same\_age,}
+\NormalTok{                              diags)}
 \NormalTok{  ages\_list }\OtherTok{\textless{}{-}} \FunctionTok{append}\NormalTok{(ages\_list, age\_names)}
 \NormalTok{\}}
 
 \NormalTok{data }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(ages\_list, contacts\_same\_age)}
 \NormalTok{data}\SpecialCharTok{$}\NormalTok{ages\_list }\OtherTok{\textless{}{-}} \FunctionTok{factor}\NormalTok{(data}\SpecialCharTok{$}\NormalTok{ages\_list, }\AttributeTok{levels=}\NormalTok{age\_names[}\DecValTok{1}\SpecialCharTok{:}\DecValTok{16}\NormalTok{], }\AttributeTok{ordered=}\ConstantTok{TRUE}\NormalTok{)}
 
-\FunctionTok{ggplot}\NormalTok{(data, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{ages\_list, }\AttributeTok{y=}\NormalTok{contacts\_same\_age), l) }\SpecialCharTok{+} \FunctionTok{geom\_boxplot}\NormalTok{() }\SpecialCharTok{+}
-  \FunctionTok{xlab}\NormalTok{(}\StringTok{"Age group"}\NormalTok{) }\SpecialCharTok{+} \FunctionTok{ylab}\NormalTok{(}\StringTok{"Number of contacts with same age group"}\NormalTok{)}
+\FunctionTok{ggplot}\NormalTok{(data, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{ages\_list, }\AttributeTok{y=}\NormalTok{contacts\_same\_age)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_boxplot}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{xlab}\NormalTok{(}\StringTok{"age group"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{ylab}\NormalTok{(}\StringTok{"number of daily within{-}group contacts"}\NormalTok{)}
 \end{Highlighting}
 \end{Shaded}
 
 \includegraphics{SEIRD_contact_matrix_files/figure-latex/unnamed-chunk-5-1.pdf}
 
-The plot shows the most uncertainty for ages 5--20 (schoolchildren). In
-most of the other age groups, the uncertainty is small but nowhere does
-it appear negligible. In the next section, the effect of these
-uncertainties on the SEIR outputs will be studied.
+The plot shows that ages 5--20 (i.e.~mostly school children) have the
+greatest possible variation in contacts. Most likely, this is because
+this age group has the most contacts.
 
-\hypertarget{seird-simulations}{%
-\subsection{SEIRD simulations}\label{seird-simulations}}
+\hypertarget{the-influence-of-contact-matrix-uncertainty-on-epidemic-dynamics}{%
+\subsection{The influence of contact matrix uncertainty on epidemic
+dynamics}\label{the-influence-of-contact-matrix-uncertainty-on-epidemic-dynamics}}
 
-In this step, we run the age-structured SEIRD model once for each
-bootstrap sample of the contact matrix. We use fixed values for the
-other parameters of the model. We set an initial exposed group
-compartment equal to 0.1\% of the population size, and all other
-individuals in the susceptible group.
+To explore the sensitivity of model output to the entries in the contact
+matrix, we run the age-structured SEIRD model once for each bootstrap
+sample of the contact matrix. We use fixed values for the other
+parameters of the model. Initially, we assume that 0.1\% of the
+population has been exposed to infection, with the remainder of the
+population susceptible.
 
-The transmission parameters are set to resemble those of the COVID-19
-outbreak. For the latency period, we assume 5.5 days (Xin et al. 2021),
-and for the duration of infectiousness, 2 days (thus, fewer than 1\% of
-individuals are infectious after 10 days, in line with government
-guidelines (UK government 2021)). To set the transmission rate
-\(\beta\), we choose the value such that the basic reproduction number,
-\(R_0\), is equal to 2.4 (Ferguson et al. 2020). The age-structured
-model also takes the parameter \(\mu\) which specifies the rate at which
-infected people enter the deceased compartment. For this parameter, we
-provide a vector giving a separate value for each age group. The values
-are selected to resemble the death rates of the COVID-19 outbreak in
-mainland China during January and February 2020 (Verity et al. 2020). To
-obtain estimates of \(\mu\) for each age group, we use data for the case
-fatality ratio (IFR).
-
-To calculate the recovery rate (\(\gamma\)) and the death rate (\(\mu\))
-from the above quantities, we introduce \(\eta\) giving the inverse of
-the average duration of infectiousness, and set:
-
-\[\mu = \eta \text{IFR}\] \[\gamma = \eta (1-\text{IFR})\]
+Here, we assume the transmission dynamics are representative of
+ancestral SARS-CoV-2 and obtain representative values from the
+\texttt{covid\_transmission\_parameters()} function in
+\texttt{comomodels}. For further details on these chosen parameter
+values, we refer the interested reader to this function's documentation.
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -367,8 +409,13 @@ the average duration of infectiousness, and set:
 \end{Highlighting}
 \end{Shaded}
 
+With the parameter values set, we now simulate the \texttt{SEIRDAge}
+model for one year for each of the bootstrap samples of the contact
+matrix.
+
 \begin{Shaded}
 \begin{Highlighting}[]
+\NormalTok{times }\OtherTok{\textless{}{-}} \FunctionTok{seq}\NormalTok{(}\DecValTok{0}\NormalTok{, }\DecValTok{365}\NormalTok{, }\AttributeTok{by=}\DecValTok{1}\NormalTok{)}
 \ControlFlowTok{for}\NormalTok{ (i }\ControlFlowTok{in} \DecValTok{1}\SpecialCharTok{:}\NormalTok{n\_bootstrap)\{}
 \NormalTok{  matrix}\OtherTok{=}\NormalTok{matrices[[i]][[}\DecValTok{1}\NormalTok{]]}
 
@@ -377,27 +424,35 @@ the average duration of infectiousness, and set:
   \FunctionTok{rownames}\NormalTok{(matrix) }\OtherTok{\textless{}{-}} \ConstantTok{NULL}
 
   \CommentTok{\# Keep the data for ages 0{-}80, in 5 year increments}
-\NormalTok{  matrix }\OtherTok{\textless{}{-}}\NormalTok{ matrix[}\DecValTok{1}\SpecialCharTok{:}\DecValTok{16}\NormalTok{,}\DecValTok{1}\SpecialCharTok{:}\DecValTok{16}\NormalTok{]}
+\NormalTok{  matrix }\OtherTok{\textless{}{-}}\NormalTok{ matrix[}\DecValTok{1}\SpecialCharTok{:}\DecValTok{16}\NormalTok{, }\DecValTok{1}\SpecialCharTok{:}\DecValTok{16}\NormalTok{]}
 
 \NormalTok{  model }\OtherTok{\textless{}{-}}\NormalTok{ comomodels}\SpecialCharTok{::}\FunctionTok{SEIRDAge}\NormalTok{(}\AttributeTok{n\_age\_categories=}\NormalTok{n\_ages,}
                    \AttributeTok{contact\_matrix=}\NormalTok{matrix,}
                    \AttributeTok{age\_ranges=}\FunctionTok{as.list}\NormalTok{(age\_names))}
 
   \CommentTok{\# Set the other parameters of the model}
-  \FunctionTok{transmission\_parameters}\NormalTok{(model) }\OtherTok{\textless{}{-}} \FunctionTok{list}\NormalTok{(}\AttributeTok{b=}\NormalTok{beta, }\AttributeTok{k=}\NormalTok{kappa, }\AttributeTok{g=}\NormalTok{gamma\_age\_vals, }\AttributeTok{mu=}\NormalTok{mu\_age\_vals)}
+  \FunctionTok{transmission\_parameters}\NormalTok{(model) }\OtherTok{\textless{}{-}} \FunctionTok{list}\NormalTok{(}\AttributeTok{b=}\NormalTok{beta,}
+                                         \AttributeTok{k=}\NormalTok{kappa,}
+                                         \AttributeTok{g=}\NormalTok{gamma\_age\_vals,}
+                                         \AttributeTok{mu=}\NormalTok{mu\_age\_vals)}
+
   \FunctionTok{initial\_conditions}\NormalTok{(model) }\OtherTok{\textless{}{-}} \FunctionTok{list}\NormalTok{(}\AttributeTok{S0=}\NormalTok{pop\_fraction}\SpecialCharTok{*}\FloatTok{0.999}\NormalTok{,}
                                     \AttributeTok{E0=}\FunctionTok{rep}\NormalTok{(}\DecValTok{0}\NormalTok{, n\_ages),}
                                     \AttributeTok{I0=}\NormalTok{pop\_fraction}\SpecialCharTok{*}\FloatTok{0.001}\NormalTok{,}
                                     \AttributeTok{R0=}\FunctionTok{rep}\NormalTok{(}\DecValTok{0}\NormalTok{, n\_ages),}
                                     \AttributeTok{D0=}\FunctionTok{rep}\NormalTok{(}\DecValTok{0}\NormalTok{, n\_ages))}
-\NormalTok{  res }\OtherTok{\textless{}{-}} \FunctionTok{run}\NormalTok{(model, }\AttributeTok{time=}\FunctionTok{seq}\NormalTok{(}\DecValTok{0}\NormalTok{, }\DecValTok{365}\NormalTok{, }\AttributeTok{by=}\DecValTok{1}\NormalTok{))}
+  
+  \CommentTok{\# Run model}
+\NormalTok{  res }\OtherTok{\textless{}{-}} \FunctionTok{run}\NormalTok{(model, }\AttributeTok{time=}\NormalTok{times)}
   
   \CommentTok{\# Get states from results}
-\NormalTok{  res }\OtherTok{\textless{}{-}}\NormalTok{ res[[}\StringTok{\textquotesingle{}states\textquotesingle{}}\NormalTok{]]}
+\NormalTok{  res }\OtherTok{\textless{}{-}}\NormalTok{ res}\SpecialCharTok{$}\NormalTok{states}
 
   \CommentTok{\# Save the data for the I and R compartments}
-\NormalTok{  x }\OtherTok{=} \FunctionTok{filter}\NormalTok{(res, compartment }\SpecialCharTok{\%in\%} \FunctionTok{c}\NormalTok{(}\StringTok{"I"}\NormalTok{, }\StringTok{"R"}\NormalTok{, }\StringTok{"D"}\NormalTok{))}
-  \ControlFlowTok{if}\NormalTok{ (i}\SpecialCharTok{==}\DecValTok{1}\NormalTok{)}
+\NormalTok{  x }\OtherTok{\textless{}{-}}\NormalTok{ res }\SpecialCharTok{\%\textgreater{}\%}
+    \FunctionTok{filter}\NormalTok{(compartment }\SpecialCharTok{\%in\%} \FunctionTok{c}\NormalTok{(}\StringTok{"I"}\NormalTok{, }\StringTok{"R"}\NormalTok{, }\StringTok{"D"}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%} 
+    \FunctionTok{mutate}\NormalTok{(}\AttributeTok{iteration=}\NormalTok{i)}
+  \ControlFlowTok{if}\NormalTok{ (i }\SpecialCharTok{==} \DecValTok{1}\NormalTok{)}
 \NormalTok{    all\_results }\OtherTok{\textless{}{-}}\NormalTok{ x}
   \ControlFlowTok{else}
 \NormalTok{    all\_results }\OtherTok{\textless{}{-}} \FunctionTok{rbind}\NormalTok{(all\_results, x)}
@@ -405,94 +460,102 @@ the average duration of infectiousness, and set:
 \end{Highlighting}
 \end{Shaded}
 
-Having obtained the simulation results, we plot the central 90\%
-probability interval of the number in the infected compartment over time
-for two selected age groups (15--20 and 75--80).
+We then use the simulations to generate the central 90\% quantiles in
+the infectious population size for two age groups: 15-20 year olds and
+75-80 year olds. We plot these quantiles below.
 
 \begin{Shaded}
 \begin{Highlighting}[]
+\CommentTok{\# Filter and find quantiles}
+\NormalTok{I\_df }\OtherTok{\textless{}{-}}\NormalTok{ all\_results }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{filter}\NormalTok{(age\_range }\SpecialCharTok{\%in\%} \FunctionTok{c}\NormalTok{(}\StringTok{"15{-}20"}\NormalTok{, }\StringTok{"75{-}80"}\NormalTok{),}
+\NormalTok{         compartment}\SpecialCharTok{==}\StringTok{"I"}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{value=}\NormalTok{value }\SpecialCharTok{*} \FunctionTok{sum}\NormalTok{(pops)) }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{group\_by}\NormalTok{(time, age\_range) }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{summarise}\NormalTok{(}\AttributeTok{lower=}\FunctionTok{quantile}\NormalTok{(value, }\FloatTok{0.05}\NormalTok{),}
+            \AttributeTok{middle=}\FunctionTok{quantile}\NormalTok{(value, }\FloatTok{0.5}\NormalTok{),}
+            \AttributeTok{upper=}\FunctionTok{quantile}\NormalTok{(value, }\FloatTok{0.95}\NormalTok{))}
 
-\NormalTok{I\_data }\OtherTok{\textless{}{-}} \FunctionTok{filter}\NormalTok{(all\_results, age\_range}\SpecialCharTok{==}\StringTok{"15{-}20"}\NormalTok{, compartment}\SpecialCharTok{==}\StringTok{"I"}\NormalTok{)}
-\NormalTok{data }\OtherTok{\textless{}{-}}\NormalTok{ I\_data}\SpecialCharTok{$}\NormalTok{value }\SpecialCharTok{*} \FunctionTok{sum}\NormalTok{(pops)}
-\FunctionTok{dim}\NormalTok{(data) }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\FunctionTok{length}\NormalTok{(I\_data}\SpecialCharTok{$}\NormalTok{time)}\SpecialCharTok{/}\NormalTok{n\_bootstrap, n\_bootstrap)}
-\NormalTok{quants }\OtherTok{\textless{}{-}} \FunctionTok{t}\NormalTok{(}\FunctionTok{apply}\NormalTok{(data, }\DecValTok{1}\NormalTok{, quantile, }\AttributeTok{probs=}\FunctionTok{c}\NormalTok{(}\FloatTok{0.05}\NormalTok{, }\FloatTok{0.5}\NormalTok{, }\FloatTok{0.95}\NormalTok{), }\AttributeTok{na.rm=}\ConstantTok{TRUE}\NormalTok{))}
-\NormalTok{quants\_df }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(quants)}
-\NormalTok{quants\_df[}\StringTok{"time"}\NormalTok{] }\OtherTok{\textless{}{-}} \FunctionTok{seq}\NormalTok{(}\DecValTok{0}\NormalTok{, }\DecValTok{365}\NormalTok{, }\AttributeTok{by=}\DecValTok{1}\NormalTok{)}
-
-\FunctionTok{ggplot}\NormalTok{(quants\_df, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ time)) }\SpecialCharTok{+}
-  \FunctionTok{geom\_line}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{y=}\NormalTok{X50.)) }\SpecialCharTok{+}
-  \FunctionTok{geom\_ribbon}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{ymin=}\NormalTok{X5., }\AttributeTok{ymax=}\NormalTok{X95.), }\AttributeTok{fill=}\StringTok{"blue"}\NormalTok{, }\AttributeTok{alpha=}\FloatTok{0.5}\NormalTok{) }\SpecialCharTok{+}
-  \FunctionTok{ylab}\NormalTok{(}\StringTok{"I compartment, age 15{-}20"}\NormalTok{)}
+\CommentTok{\# Plot}
+\FunctionTok{ggplot}\NormalTok{(I\_df, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ time)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_ribbon}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{ymin =}\NormalTok{ lower, }\AttributeTok{ymax =}\NormalTok{ upper),}
+              \AttributeTok{fill =} \StringTok{"blue"}\NormalTok{, }\AttributeTok{alpha =} \FloatTok{0.5}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{geom\_line}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{y =}\NormalTok{ middle)) }\SpecialCharTok{+}
+  \FunctionTok{facet\_wrap}\NormalTok{(}\SpecialCharTok{\textasciitilde{}}\NormalTok{age\_range) }\SpecialCharTok{+}
+  \FunctionTok{xlab}\NormalTok{(}\StringTok{"time (days)"}\NormalTok{)}
 \end{Highlighting}
 \end{Shaded}
 
 \includegraphics{SEIRD_contact_matrix_files/figure-latex/unnamed-chunk-8-1.pdf}
 
-\begin{Shaded}
-\begin{Highlighting}[]
+In both age groups, the results show that there is considerable
+uncertainty in the peak infectious counts, but with considerably higher
+variation for the older age group -- a result that is particularly
+worrying given the greater risk of severe disease facaed by older
+individuals (Verity et al. 2020).
 
-\NormalTok{I\_data }\OtherTok{\textless{}{-}} \FunctionTok{filter}\NormalTok{(all\_results, age\_range}\SpecialCharTok{==}\StringTok{"75{-}80"}\NormalTok{, compartment}\SpecialCharTok{==}\StringTok{"I"}\NormalTok{)}
-\NormalTok{data }\OtherTok{\textless{}{-}}\NormalTok{ I\_data}\SpecialCharTok{$}\NormalTok{value }\SpecialCharTok{*} \FunctionTok{sum}\NormalTok{(pops)}
-\FunctionTok{dim}\NormalTok{(data) }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\FunctionTok{length}\NormalTok{(I\_data}\SpecialCharTok{$}\NormalTok{time)}\SpecialCharTok{/}\NormalTok{n\_bootstrap, n\_bootstrap)}
-\NormalTok{quants }\OtherTok{\textless{}{-}} \FunctionTok{t}\NormalTok{(}\FunctionTok{apply}\NormalTok{(data, }\DecValTok{1}\NormalTok{, quantile, }\AttributeTok{probs=}\FunctionTok{c}\NormalTok{(}\FloatTok{0.05}\NormalTok{, }\FloatTok{0.5}\NormalTok{, }\FloatTok{0.95}\NormalTok{), }\AttributeTok{na.rm=}\ConstantTok{TRUE}\NormalTok{))}
-\NormalTok{quants\_df }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(quants)}
-\NormalTok{quants\_df[}\StringTok{"time"}\NormalTok{] }\OtherTok{\textless{}{-}} \FunctionTok{seq}\NormalTok{(}\DecValTok{0}\NormalTok{, }\DecValTok{365}\NormalTok{, }\AttributeTok{by=}\DecValTok{1}\NormalTok{)}
-
-\FunctionTok{ggplot}\NormalTok{(quants\_df, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ time)) }\SpecialCharTok{+}
-  \FunctionTok{geom\_line}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{y=}\NormalTok{X50.)) }\SpecialCharTok{+}
-  \FunctionTok{geom\_ribbon}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{ymin=}\NormalTok{X5., }\AttributeTok{ymax=}\NormalTok{X95.), }\AttributeTok{fill=}\StringTok{"blue"}\NormalTok{, }\AttributeTok{alpha=}\FloatTok{0.5}\NormalTok{) }\SpecialCharTok{+}
-  \FunctionTok{ylab}\NormalTok{(}\StringTok{"I compartment, age 75{-}80"}\NormalTok{)}
-\end{Highlighting}
-\end{Shaded}
-
-\includegraphics{SEIRD_contact_matrix_files/figure-latex/unnamed-chunk-8-2.pdf}
-
-The results show that the while the shape of the epidemic trajectory
-remains similar for all contact matrices in the bootstrap sample, the
-number of people in the infected compartment exhibits significant
-uncertainty, particularly near the peak of the epidemic.
-
-Next, we perform the uncertainty analysis for the number in the
-recovered compartment at the final time point, for all age groups.
+Next, we examine the proportion of individuals infected with COVID-19 at
+the end of the year, which we plot below. Here, we consider only those
+individuals who have survived infection.
 
 \begin{Shaded}
 \begin{Highlighting}[]
+\CommentTok{\# Filter data}
+\NormalTok{df }\OtherTok{\textless{}{-}}\NormalTok{ all\_results }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{filter}\NormalTok{(compartment }\SpecialCharTok{==} \StringTok{"R"}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{filter}\NormalTok{(time }\SpecialCharTok{==} \DecValTok{365}\NormalTok{)}
 
-\NormalTok{data }\OtherTok{\textless{}{-}} \FunctionTok{filter}\NormalTok{(all\_results, compartment}\SpecialCharTok{==}\StringTok{"R"}\NormalTok{, time}\SpecialCharTok{==}\FloatTok{365.0}\NormalTok{)}
-
-\FunctionTok{ggplot}\NormalTok{(data, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{age\_range, }\AttributeTok{y=}\NormalTok{value}\SpecialCharTok{/}\NormalTok{pop\_fraction), l) }\SpecialCharTok{+}
+\CommentTok{\# Plot}
+\FunctionTok{ggplot}\NormalTok{(df,}
+       \FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{age\_range, }\AttributeTok{y=}\NormalTok{value}\SpecialCharTok{/}\NormalTok{pop\_fraction)) }\SpecialCharTok{+}
   \FunctionTok{geom\_boxplot}\NormalTok{() }\SpecialCharTok{+}
-  \FunctionTok{xlab}\NormalTok{(}\StringTok{"Age group"}\NormalTok{) }\SpecialCharTok{+}
-  \FunctionTok{ylab}\NormalTok{(}\StringTok{"Proportion of age group ever infected"}\NormalTok{)}
+  \FunctionTok{xlab}\NormalTok{(}\StringTok{"age group"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{ylab}\NormalTok{(}\StringTok{"proportion of age group previously infected with COVID{-}19"}\NormalTok{)}
 \end{Highlighting}
 \end{Shaded}
 
 \includegraphics{SEIRD_contact_matrix_files/figure-latex/unnamed-chunk-9-1.pdf}
-These results show that younger age groups suffer more infections. This
-trend can be explained by the larger numbers of total contacts for
-younger age groups, as observed in the contact matrices at the beginning
-of this notebook.
+This plot shows that those aged 5--20 are those most likely to have been
+infected by COVID-19: mainly because these individuals have the highest
+number of contacts and, because of this, are important drivers of
+infections within the population.
 
-Finally, we study the effects on death.
+This plot also illustrates the pronounced uncertainty in the proportion
+of infecteds in the oldest age group.
+
+Finally, we study the effect of uncertainty in the contact matrix on the
+number of individuals that die of the infection.
 
 \begin{Shaded}
 \begin{Highlighting}[]
+\CommentTok{\# Filter dataset}
+\NormalTok{df }\OtherTok{\textless{}{-}}\NormalTok{ all\_results }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{filter}\NormalTok{(compartment }\SpecialCharTok{==} \StringTok{"D"}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{filter}\NormalTok{(time }\SpecialCharTok{==} \DecValTok{365}\NormalTok{)}
 
-\NormalTok{data }\OtherTok{\textless{}{-}} \FunctionTok{filter}\NormalTok{(all\_results, compartment}\SpecialCharTok{==}\StringTok{"D"}\NormalTok{, time}\SpecialCharTok{==}\FloatTok{365.0}\NormalTok{)}
-
-\FunctionTok{ggplot}\NormalTok{(data, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{age\_range, }\AttributeTok{y=}\NormalTok{value}\SpecialCharTok{/}\NormalTok{pop\_fraction), l) }\SpecialCharTok{+}
+\CommentTok{\# Plot}
+\FunctionTok{ggplot}\NormalTok{(df, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{age\_range, }\AttributeTok{y=}\NormalTok{value }\SpecialCharTok{/}\NormalTok{ pop\_fraction)) }\SpecialCharTok{+}
   \FunctionTok{geom\_boxplot}\NormalTok{() }\SpecialCharTok{+}
-  \FunctionTok{xlab}\NormalTok{(}\StringTok{"Age group"}\NormalTok{) }\SpecialCharTok{+}
-  \FunctionTok{ylab}\NormalTok{(}\StringTok{"Proportion of age group died"}\NormalTok{)}
+  \FunctionTok{xlab}\NormalTok{(}\StringTok{"age group"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{ylab}\NormalTok{(}\StringTok{"proportion of age group dying due to COVID{-}19 infection"}\NormalTok{)}
 \end{Highlighting}
 \end{Shaded}
 
 \includegraphics{SEIRD_contact_matrix_files/figure-latex/unnamed-chunk-10-1.pdf}
-Although younger people are more likely to be infected in this
-simulation, deaths occur mainly in the elderly, due to the
-age-structured mortality parameter \(\mu\) described above. The
-different bootstrap samples of the contact matrix result in a wide range
-in the number of deaths, particularly in the 70--80 age groups.
+
+Although younger people are more likely to be infected due to their
+higher number of contacts, deaths occur mainly in the elderly. The
+bootstrapped samples of the contact matrix generate a wide range of
+deaths, particularly in the oldest age groups.
+
+\hypertarget{conclusion}{%
+\subsection{Conclusion}\label{conclusion}}
+
+Who we interact with and how often we interact changes as we age.
+COVID-19 is predominantly spread from close contact with infected
+individuals and has a strong age-profile of severe disease. Because of
+this, mathematical models of disease transmission are often acutely
+sensitive to estimates of age-specific contact patterns.
 
 \hypertarget{references}{%
 \subsection*{References}\label{references}}
@@ -500,38 +563,34 @@ in the number of deaths, particularly in the 70--80 age groups.
 
 \hypertarget{refs}{}
 \begin{CSLReferences}{1}{0}
-\leavevmode\hypertarget{ref-ferguson2020report}{}%
-Ferguson, Neil, Daniel Laydon, Gemma Nedjati Gilani, Natsuko Imai, Kylie
-Ainslie, Marc Baguelin, Sangeeta Bhatia, et al. 2020. {``Report 9:
-Impact of Non-Pharmaceutical Interventions (NPIs) to Reduce Covid19
-Mortality and Healthcare Demand.''}
+\leavevmode\hypertarget{ref-arregui2018projecting}{}%
+Arregui, Sergio, Alberto Aleta, Joaquı́n Sanz, and Yamir Moreno. 2018.
+{``Projecting Social Contact Matrices to Different Demographic
+Structures.''} \emph{PLOS Computational Biology} 14 (12): e1006638.
+
+\leavevmode\hypertarget{ref-funk2020mixr}{}%
+Funk, Sebastian. 2020. \emph{Socialmixr: Social Mixing Matrices for
+Infectious Disease Modelling}.
+\url{https://CRAN.R-project.org/package=socialmixr}.
+
+\leavevmode\hypertarget{ref-polymod2017}{}%
+Mossong, Joel, Niel Hens, Mark Jit, Philippe Beutels, Kari Auranen,
+Rafael Mikolajczyk, Marco Massari, et al. 2017. {``POLYMOD Social
+Contact Data.''} \emph{Zenodo}.
 
 \leavevmode\hypertarget{ref-prem2021projecting}{}%
 Prem, Kiesha, Kevin van Zandvoort, Petra Klepac, Rosalind M Eggo,
 Nicholas G Davies, Centre for the Mathematical Modelling of Infectious
 Diseases COVID-19 Working Group, Alex R Cook, and Mark Jit. 2021.
 {``Projecting Contact Matrices in 177 Geographical Regions: An Update
-and Comparison with Empirical Data for the COVID-19 Era.''} \emph{PLoS
+and Comparison with Empirical Data for the COVID-19 Era.''} \emph{PLOS
 Computational Biology} 17 (7): e1009098.
-
-\leavevmode\hypertarget{ref-stayathome2021}{}%
-UK government. 2021. {``{Stay at home: guidance for households with
-possible or confirmed coronavirus (COVID-19) infection. Updated 2
-December 2021.}''}
-\url{https://www.gov.uk/government/publications/covid-19-stay-at-home-guidance/stay-at-home-guidance-for-households-with-possible-coronavirus-covid-19-infection}.
 
 \leavevmode\hypertarget{ref-verity2020estimates}{}%
 Verity, Robert, Lucy C Okell, Ilaria Dorigatti, Peter Winskill, Charles
 Whittaker, Natsuko Imai, Gina Cuomo-Dannenburg, et al. 2020.
 {``Estimates of the Severity of Coronavirus Disease 2019: A Model-Based
 Analysis.''} \emph{The Lancet Infectious Diseases} 20 (6): 669--77.
-
-\leavevmode\hypertarget{ref-xin2021estimating}{}%
-Xin, Hualei, Yu Li, Peng Wu, Zhili Li, Eric HY Lau, Ying Qin, Liping
-Wang, Benjamin J Cowling, Tim Tsang, and Zhongjie Li. 2021.
-{``Estimating the Latent Period of Coronavirus Disease 2019
-(COVID-19).''} \emph{Clinical Infectious Diseases: An Official
-Publication of the Infectious Diseases Society of America}.
 
 \end{CSLReferences}
 
