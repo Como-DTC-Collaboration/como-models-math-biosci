@@ -1,5 +1,5 @@
 ---
-title: "The importance of uncertainty in contact patterns for quantifying risk"
+title: "The importance of uncertainty in age-specific contact patterns for quantifying COVID-19 risk"
 output: rmarkdown::pdf_document
 bibliography: ../references.bib
 vignette: >
@@ -31,7 +31,7 @@ Age is a major risk factor for severe disease due to COVID-19 infection, so acco
 C_{i,j} = \frac{\text{total \# contacts between } i \text{ and } j}{\text{size of group }i}.
 \end{equation}
 
-Because $C_{j,i}$ has the size of group $j$ as its denominator, typically $C_{i,j}\neq C_{j,i}$ due to demographic patterns meaning contact matrices are not typically symmetric. Since the age-demographics of a population affect its contact matrices, a contact matrix estimated for a given country should not be repurposed for another without due care [@arregui2018projecting].
+Because $C_{j,i}$ has the size of group $j$ as its denominator, typically $C_{i,j}\neq C_{j,i}$ due to demographic patterns, meaning contact matrices are not typically symmetric. Since the age-demographics of a population affect its contact matrices, a contact matrix estimated for a given country should not be repurposed for another without due care [@arregui2018projecting].
 
 Contact matrices are constructed from survey data, where participants in the study record their contacts throughout the day and include information on the age and location of the contact. 
 
@@ -53,15 +53,18 @@ contact_other <- comomodels::contact_other
 population <- comomodels::population
 ```
 
-We then select a specific country for which we want to visualize the contact matrices, and plot all four contact matrices for this country. In the contact matrices provided by @prem2021projecting, the oldest age group is for 75-80 year olds; in what follows, we assume that the contact patterns are the same for individuals aged 80+. This is likely a strong assumption, since it neglects the change of circumstances that may occur for many in this age group. But the change in circumstances may act either to increase or to decrease contact rates, so assuming contact patterns remain the same is a reasonable null hypothesis.
+In the contact matrices provided by @prem2021projecting, the oldest age group is 75--80 year olds; in what follows, we assume that the contact patterns are the same for individuals aged 80+. This is likely a strong assumption, since it neglects the change of circumstances that may occur for many in this age group. But the change in circumstances may act either to increase or to decrease contact rates, so assuming contact patterns remain the same is a reasonable null hypothesis.
+
+We select the set of contact matrices for the UK and plot these below.
 
 ```{r, fig.width=10, fig.height=7}
 # reformat matrices for plotting
-ages <- seq(0, 120, 5)
+ages <- seq(0, 80, 5)
 age_names <- vector(length = 16)
 for(i in seq_along(age_names)) {
   age_names[i] <- paste0(ages[i], "-", ages[i + 1])
 }
+age_names[length(age_names)] <- "75+"
 
 format_matrix <- function(contact_matrix, age_names) {
   colnames(contact_matrix) <- age_names
@@ -98,7 +101,7 @@ c_all %>%
   ylab("age group of infectee")
 ```
 
-These matrices illustrate rich contact patterns for the UK, which are markedly different between locations. At school, unsurprisingly, students mix with many others of similar ages. At home, there is considerable intergenerational mixing. At work, there is more uniform mixing -- by vast majority between people of working age. These suggest a common transmission pattern, in which schoolchildren, who have the most daily contacts, infect one another. They then pass infection onto their parents at home, who then pass their infection onto work colleagues. A cluster-controlled trial in the US where "intervention schools" were offered live attenuated flu vaccine with comparable control schools offered no vaccine had significantly fewer influenza-like symptoms in follow up [@king2006effectiveness]. This hints that offering vaccines to schoolchildren may be effective at reducing transmission of COVID-19 [@walter2022evaluation], although other strategies including regular COVID-19 testing of students have been advocated [@asanati2021healthier].
+These matrices illustrate rich contact patterns for the UK, which are markedly different between locations. At school, unsurprisingly, students mix with many others of similar ages. At home, there is considerable intergenerational mixing. At work, there is more uniform mixing -- by vast majority between people of working age. These suggest a common transmission pattern, in which schoolchildren, who have the most daily contacts, infect one another. They then pass infection onto their parents at home, who then pass their infection onto work colleagues. This suggests that policies aimed at reducing infections in schoolchildren may help to break this important cycle. A cluster-controlled trial in the US where "intervention schools" were offered live attenuated flu vaccine with comparable control schools offered no vaccine had significantly fewer influenza-like symptoms in follow up [@king2006effectiveness]. This hints that offering vaccines to schoolchildren may be effective at reducing transmission of COVID-19 [@walter2022evaluation], although other strategies including regular COVID-19 testing of students have been advocated [@asanati2021healthier].
 
 The availability of contact matrices for different locations within the package facilitates simulation of age-structured transmission models across geographies. The current set of age-structured models in `comomodels` does not explicitly include location-specific infections. Thus, we obtain a single contact matrix for the age-structured models by summing the four location-specific contact matrices:
 
@@ -112,18 +115,11 @@ When performing forward simulations of the age-structured SEIRD model or when fi
 
 The purpose of the remainder of this notebook is to investigate the sensitivity of the outputs of the age-structured SEIRD model to the uncertainty in contact matrix estimates. To do so, we use bootstrapped samples of the contact matrix to represent this uncertainty. The bootstrap algorithm works by selecting a random sample (with replacement) of the survey respondents, which it then uses to construct a contact matrix. Across many such samples, the set of contact matrices provides a measure of uncertainty in the number of daily contacts across different age groups.
 
-There are a range of factors which the bootstrapped approach to uncertainty quantification does not consider, however. The algorithm assumes that the original survey from which the contact matrices are calculated is representative of the underlying population, which may not be true. For example, if contact data are collected primarily from an urban area in a country whose population is mostly rural, the resulting contact matrices would likely be unrepresentative of the country as a whole. (Indeed, if the two contact matrices differ so markedly, it may be preferable to model the urban and rural populations separately, as in the `SEIRD_RU` model.) The bootstrap algorithm does not allow for such biases in quantifying uncertainty, so likely understates true population-level uncertainty.
+There are a range of factors which the bootstrapped approach to uncertainty quantification does not consider, however. The algorithm assumes that the original survey from which the contact matrices are calculated is representative of the underlying population, which may not be true. For example, if contact data are collected primarily from an urban area in a country whose population is mostly rural, the resulting contact matrices would likely be unrepresentative of the country as a whole. (Indeed, if the two contact matrices differ so markedly, it is preferable to model the urban and rural populations separately, as in the `SEIRD_RU` model.) The bootstrap algorithm does not allow for such biases in quantifying uncertainty, so likely understates true population-level uncertainty.
 
 We obtain bootstrapped samples of the contact matrix using the `socialmixr` library which accesses the POLYMOD data [@funk2020mixr; @polymod2017]. We base our analysis on the UK and generate 200 contact matrix draws to represent its uncertainty.
 
 ```{r}
-# Define age groups and names
-ages <- seq(0, 120, 5)
-age_names <- vector(length = 16)
-for(i in seq_along(age_names)) {
-  age_names[i] <- paste0(ages[i], "-", ages[i + 1])
-}
-
 # Get population data: merge ages 75+
 pops <- population[population$country == "United Kingdom", ]$pop
 pop_fraction <- pops / sum(pops)
@@ -132,7 +128,7 @@ pop_fraction <- pop_fraction[1:16]
 n_ages <- 16
 
 # Load the contact matrix data from POLYMOD and get bootstrap samples
-n_bootstrap <- 10
+n_bootstrap <- 200
 data(polymod)
 polymod_data <- contact_matrix(polymod,
                                n=n_bootstrap,
@@ -169,17 +165,20 @@ ggplot(data, aes(x=ages_list, y=contacts_same_age)) +
 The plot shows that ages 5--20 (i.e. mostly school children) have the greatest variation in contacts. Most likely, this is because this age group has the most contacts.
 
 ## The influence of contact matrix uncertainty on epidemic dynamics
-To explore the sensitivity of model output to the entries in the contact matrix, we run the age-structured SEIRD model once for each bootstrapped sample of the contact matrix. We use fixed values for the other parameters of the model. Here, we assume the infection dynamics are representative of ancestral SARS-CoV-2 transmission and obtain representative values from the `covid_transmission_parameters()` function in `comomodels`. For further details on these chosen parameter values, we refer the interested reader to this function's documentation. Initially, we assume that 0.1% of the population has been exposed to infection, with the remainder of the population susceptible.
+To explore the sensitivity of model outputs to the elements of the contact matrix, we run the age-structured SEIRD model once for each bootstrapped sample of the contact matrix. We use fixed values for the other parameters of the model. Here, we assume the infection dynamics are representative of ancestral SARS-CoV-2 transmission and obtain representative values from the `covid_transmission_parameters()` function in `comomodels`. For further details on these chosen parameter values, we refer the interested reader to this function's documentation. Initially, we assume that 0.1% of the population is infectious, with the remainder of the population susceptible.
 
 ```{r}
 # Get age-structured parameters
 parameters <- covid_transmission_parameters(is_age_structured=TRUE)
 
-# Assume (mu, gamma) in 75+ is average of 75-80 y.o.s. and 80+ group 
+# Assume (mu, gamma) in 75+ is average of 75-80 y.o.s. and 80+ group.
+# Also assume that rates are constant in 10 year gaps
 mu_oldest <- mean(parameters$mu$mu[8:9])
-mu_age_vals <- c(parameters$mu$mu[1:7], mu_oldest)
+mu <- c(parameters$mu$mu[1:7], mu_oldest)
+mu_age_vals <- rep(mu, each=2)
 gamma_oldest <- mean(parameters$gamma$gamma[8:9])
-gamma_age_vals <- c(parameters$gamma$gamma[1:7], gamma_oldest)
+gamma <- c(parameters$gamma$gamma[1:7], gamma_oldest)
+gamma_age_vals <- rep(gamma, each=2)
 
 # Set the non-age structured parameters
 parameters <- covid_transmission_parameters()
@@ -188,8 +187,39 @@ gamma <- parameters$gamma
 mu <- parameters$mu
 R0_target <- parameters$R0
 
-# Set beta to hit R0_target for average contact matrix
+# Set beta to be close to R0_target for the median contact matrix
+beta <- 0.46
 
+# conversion of list of matrices to array requires two calls
+matrix <- simplify2array(matrices)
+matrix <- apply(simplify2array(matrix), 1:2, function(x) median(x, na.rm=T))
+
+# Keep the data for ages 0-80, in 5 year increments
+matrix <- matrix[1:16, 1:16]
+
+# To obtain R0 value, need to instantiate model
+model <- comomodels::SEIRDAge(n_age_categories=n_ages,
+                   contact_matrix=matrix,
+                   age_ranges=as.list(age_names))
+trans_params <- list(b=beta,
+                     k=kappa,
+                     g=gamma_age_vals,
+                     mu=mu_age_vals)
+transmission_parameters(model) <- trans_params
+
+# Set inits
+S0_frac <- 0.999
+I0_frac <- 0.001
+inits <- list(S0=pop_fraction * S0_frac,
+              E0=rep(0, n_ages),
+              I0=pop_fraction * I0_frac,
+              R0=rep(0, n_ages),
+              D0=rep(0, n_ages))
+initial_conditions(model) <- inits
+
+# Close to target
+print(paste0("Target R0 = ", R0_target))
+print(paste0("Model R0 = ", round(R0(model, pop_fraction), 2)))
 ```
 
 With the parameter values set, we now simulate the `SEIRDAge` model for one year for each of the bootstrap samples of the contact matrix.
@@ -211,16 +241,9 @@ for (i in 1:n_bootstrap){
                    age_ranges=as.list(age_names))
 
   # Set the other parameters of the model
-  transmission_parameters(model) <- list(b=beta,
-                                         k=kappa,
-                                         g=gamma_age_vals,
-                                         mu=mu_age_vals)
+  transmission_parameters(model) <- trans_params
 
-  initial_conditions(model) <- list(S0=pop_fraction*0.999,
-                                    E0=rep(0, n_ages),
-                                    I0=pop_fraction*0.001,
-                                    R0=rep(0, n_ages),
-                                    D0=rep(0, n_ages))
+  initial_conditions(model) <- inits
   
   # Run model
   res <- run(model, time=times)
@@ -239,12 +262,12 @@ for (i in 1:n_bootstrap){
 }
 ```
 
-We then use the simulations to generate the central 90% quantiles in the infectious population size for two age groups: 15-20 year olds and 75-80 year olds. We plot these quantiles below.
+We then use the simulations to generate the central 90% quantiles in the infectious population size for two age groups: 15--20 year olds and the 75+ age group. We plot these quantiles below.
 
 ```{r, fig.width=7, fig.height=5}
 # Filter and find quantiles
 I_df <- all_results %>%
-  filter(age_range %in% c("15-20", "75-80"),
+  filter(age_range %in% c("15-20", "75+"),
          compartment=="I") %>% 
   mutate(value=value * sum(pops)) %>% 
   group_by(time, age_range) %>% 
@@ -261,7 +284,7 @@ ggplot(I_df, aes(x = time)) +
   xlab("time (days)")
 ```
 
-In both age groups, the results show that there is considerable uncertainty in the peak infectious counts, but with considerably higher variation for the older age group -- a result that is particularly worrying given the greater risk of severe disease facaed by older individuals [@verity2020estimates].
+In both age groups, the results show marked uncertainty in the peak infectious counts but with more substantial variation for the older age group -- a result that is particularly worrying given the greater risk of severe disease faced by older individuals [@verity2020estimates].
 
 Next, we examine the proportion of individuals infected with COVID-19 at the end of the year, which we plot below. Here, we consider only those individuals who have survived infection. 
 
@@ -280,7 +303,7 @@ ggplot(df,
 ```
 This plot shows that those aged 5--20 are those most likely to have been infected by COVID-19: mainly because these individuals have the highest number of contacts and, because of this, are important drivers of infections within the population.
 
-This plot also illustrates the pronounced uncertainty in the proportion of infecteds in the oldest age group.
+This plot also illustrates the pronounced uncertainty in the proportion exposed to infection in the oldest age groups.
 
 Finally, we study the effect of uncertainty in the contact matrix on the number of individuals that die of the infection.
 
@@ -300,6 +323,6 @@ ggplot(df, aes(x=age_range, y=value / pop_fraction)) +
 Although younger people are more likely to be infected due to their higher number of contacts, deaths occur mainly in the elderly. The bootstrapped samples of the contact matrix generate a wide range of deaths, particularly in the oldest age groups.
 
 ## Conclusion
-Who we interact with and how often we interact changes as we age. COVID-19 is predominantly spread from close contact with infected individuals and has a strong age-profile of severe disease. Because of this, mathematical models of disease transmission are often acutely sensitive to estimates of age-specific contact patterns.
+Who we interact with and how often we interact changes as we age. COVID-19 is predominantly spread from close contact with infected individuals and has a strong age-profile of severe disease. Because of this, mathematical models of disease transmission are often acutely sensitive to estimates of age-specific contact patterns. Thus, sensitivity analyses of models with respect to contact matrix inputs are essential.
 
 ## References
