@@ -1,5 +1,5 @@
 ---
-title: "Numerical solution of SEIRD"
+title: "On the numerical solution of compartmental models"
 output: rmarkdown::pdf_document
 bibliography: ../references.bib
 vignette: >
@@ -23,27 +23,12 @@ knitr::opts_chunk$set(
 
 
 ## Introduction
+In comomodels, we focus on deterministic models which can be used to represent infection dynamics. Specifically, we investigate compartmental models, which are described by systems of _ordinary differential equations_. In these models, the rate of evolution of the state variables through time is modelled as a function of time, parameters and the current state values. If these differential equations are coupled with a set of initial conditions, they form a system whose solution represents the evolution of the state variables over time. Like many differential equation models of interest in scientific
+applications, typical compartmental models are nonlinear, and they generally cannot be solved exactly. Instead, an approximation of the solution must be obtained using numerical methods, which, in effect, numerically integrate the system by taking small discrete time steps.
 
-Compartmental epidemiological models (such as SEIRD and its variants) are 
-_differential equation_ models—that is, given particular values of the 
-model parameters, the models do not directly specify a functional form over 
-time, but rather they specify the instantaneous rate of change of the system,
-forming a system of differential equations whose solution is the model output
-over time. Like many differential equation models of interest in scientific
-applications, SEIRD differential equations do not admit analytical solutions.
-Instead, an approximation of the solution must be obtained using numerical
-methods.
+Systems of differential equations can be integrated using a fixed time step solver, such as the _forward Euler_ method. In this notebook, we show that when such methods are used without sufficiently small time steps, the numerical solution can represent a poor approximation. We recommend using more sophisticated adaptive step size solvers to integrate the types of (deterministic) compartmental models encountered in infectious disease epidemiology, as are implemented as defaults in the comomodels package.
 
-Epidemiological differential equations can be solved straightforwardly using a simple fixed
-time step solver such as the Euler method. In this notebook, we show that when
-such methods are employed without sufficient care in the selection of the time
-step, high error in the numerical solution may occur. We recommend more
-sophisticated adaptive step size solvers when solving SEIRD-type models, as 
-implemented in the [comomodels](https://github.com/Como-DTC-Collaboration/como-models) package.
-
-This notebook begins with a review of a simple differential equation solver on 
-a toy problem with a known solution. Then, it demonstrates the importance of 
-accurate ODE solvers for comomodel's SEIRD model.
+This notebook begins with a review of the use of forward Euler on a toy problem with a known solution. Then, it demonstrates the importance of accurate ODE solvers for comomodel's `SEIRD` model.
 
 
 ```{r setup}
@@ -56,14 +41,11 @@ library(glue)
 
 ## Numerical solution of a differential equation using forward Euler
 
-One of the simplest numerical solvers for differential equations is the forward
-Euler method. This method assumes a first order differential equation
+One of the simplest numerical solvers for differential equations is the forward Euler method. This method assumes a first order differential equation:
 
 $$\frac{df}{dt} = g(t, f)$$
 
-(note that $f$ may be a vector-valued function), as well as an initial
-condition $f(t=t_0)$. Forward Euler forms an approximate solution
-$\{f_i\}_{i=0}^N$ on a set of time points 
+(note that $f$ may be a vector-valued function), as well as an initial condition $f(t=t_0)$. Forward Euler forms an approximate solution $\{f_i\}_{i=0}^N$ on a set of time points 
 $\{t_i = t_0 + i \Delta t\}_{i=0}^N$ which is given by:
 
 $$f_0 = f(t=t_0);$$
@@ -72,44 +54,42 @@ $$f_{i+1} = f_i + g(t_i, f_i) \Delta t,\:\:\:\: i=1, \dots, N-1.$$
 ### Importance of the solver step size
 
 Note that $\Delta t$—the time spacing between adjacent values in the 
-approximate solution—is a critical parameter of the Euler method. While 
-calculating the next function value $f_{i+1}$, the Euler method approximates 
+approximate solution—is a critical parameter of the forward Euler method. While 
+calculating the next function value $f_{i+1}$, this method approximates 
 the derivative $g(t, f)$ with the constant value $g(t_i, f_i)$ for the interval
 $(t_i, t_i + \Delta t)$. However, $g(t, f)$ typically varies
 over time—thus, as $\Delta t$ increases, this approximation becomes worse, and this approximation error accumulates in the numerical solution and causes it to deviate from the true values.
 
 However, obtaining a satisfactory solution to the differential equation is not
-as simple as setting $\Delta t$ to some minuscule value, as decreasing the 
+as simple as setting $\Delta t$ to a tiny value, as decreasing the 
 value of $\Delta t$ increases the runtime of the solver, and for
 very small values of $\Delta t$, the runtime may be prohibitive. This is because solving the ODE on
-a time interval of length $T$ requires $T/\Delta t$ iterations of the Forward Euler method, each
+a time interval of length $T$ requires $T/\Delta t$ iterations of the forward Euler method: each
 iteration requiring one evaluation of the function $g$—smaller values of $\Delta t$ thus 
 require more calculations of $g$, which are potentially slow.
 
-### Effect of solver step size on solutions
+### Effect of solver step size on solution accuracy
 
-We examine the numerical arising from the solver step size in the SIR model. The 
+We examine the numerical error arising from the solver step size in the SIR model. The 
 proportions of susceptible (S), infected (I), and recovered (R) are modelled according to the differential equations:
 
-$$\frac{dS}{dt} = -\beta S I;$$
+$$\frac{dS}{dt} = -\beta S I,$$
 
-$$\frac{dI}{dt} = \beta S I - \gamma I;$$
+$$\frac{dI}{dt} = \beta S I - \gamma I,$$
 and 
 $$\frac{dR}{dt} = \gamma I. $$
 
 We focus on the $I$ compartment and consider the early phase of an epidemic where $S>> I$.
-Under these conditions, $S$ is approximately constant and we have for $dI/dt$:
+Under these conditions, $S$ is approximately constant and the equation for infectious individuals is given by:
 
 $$\frac{dI}{dt} = (\beta - \gamma) S I;\;\;\;\; I(t=0) = I_0$$
 
-whose analytical solution if $S$ were constant is:
+whose analytical solution is:
 
 $$I(t) = I_0 \exp((\beta - \gamma) S t) $$
 
 We set $I_0 = 0.001$ and $(\beta - \gamma) S = 1$. We solve this differential equation on
-the interval from $t=0$ to $t=3$ with two different choices of the time step
-($\Delta t=1$ and $\Delta t=0.1$). We compare the obtained approximate
-solutions with the known true solution.
+the interval from $t=0$ to $t=3$ with two different choices of the time step -- $\Delta t=1$ day and $\Delta t=0.1$ day -- and in both cases, we compare the obtained approximate solutions with the known true solution.
 
 ```{r, fig.width=7, fig.height=5}
 rhs <- function(t, state, params){
@@ -176,41 +156,40 @@ ggplot() +
   ylab('I(t)')
 ```
 
-We observe that the large step size of $\Delta t=1$ causes significant
-inaccuracy in the solution. In particular, because the derivative is increasing
+This shows that a step size of $\Delta t=1$ day results in a very inaccurate solution. In particular, because the derivative is increasing
 over time, the forward Euler method (which, between solver time steps, assumes
 that the  derivative remains constant at an old value) produces an approximate
-solution that is too low. For the smaller time step $\Delta t=0.1$, the
-approximate solution is more accurate, although a negative deviation is still
-apparent.
+solution that is too low. For $\Delta t=0.1$ day, the
+approximate solution is more accurate, although still significantly understates the true solution.
 
-## Effect of solver step size on the SEIRD model
 
-First, we load the SEIRD model from comomodels, and specify plausible parameter values and initial conditions.
+## Effect of integrator step size on the SEIRD model
+We now examine the impact of step size on the `SEIRD` model, where we set its parameter values to be representative of the Delta variant of SARS-CoV-2. First, we load the `SEIRD` model from comomodels and specify plausible parameter values and initial conditions.
 
 ```{r}
+# instantiate model
 model <- comomodels::SEIRD()
 
-# Covid delta parameters
-R0 <- 5
-ifr <- 0.0066
-kappa <- 1 / 3.7
-gamma <- 1/7 * (1-ifr)
-mu <- 1/7 * ifr
-beta <- (mu + gamma) * R0
+# delta parameters
+params <- covid_transmission_parameters(variant="delta")
+kappa <- params$kappa
+mu <- params$mu
+gamma <- params$gamma
+R0_target <- params$R0
+# set beta to hit R0 target
+beta <- (mu + gamma) * R0_target
 
 transmission_parameters(model) <- list(beta=beta, kappa=kappa, gamma=gamma, mu=mu)
+
+# assume small proportion initially infected
 initial_conditions(model) <- list(S0=0.999, E0=0, I0=0.001, R0=0)
 ```
 
-Next, we run the model using the forward Euler method. We investigate two 
-different choices for the solver step size. The first is a daily time step,
+Next, we solve the model using the forward Euler method. We investigate two different choices for the solver step size. The first is a daily time step,
 which naively might be considered an acceptable default choice, given that we 
-are interested in simulating daily cases and deaths. We also consider a much 
-smaller time step of 0.001 days, for which we know that the solution is 
-sufficiently accurate (see the section "Adaptive step size methods" below for
-further details on obtaining numerical solutions with a desired degree of 
-accuracy).
+are interested in simulating daily cases and deaths. We also consider a much smaller time step of 0.001 days, for which we know that the solution is 
+reasonably accurate (see the section "Adaptive step size methods" below for further details on obtaining numerical solutions with a desired degree of 
+accuracy). We then plot the daily deaths and cases below.
 
 ```{r, fig.width=11, fig.height=5}
 times_daily <- seq(0, 50, by=1)
@@ -255,34 +234,19 @@ ggplot(subset(all_changes, all_changes[,3]=="Deaths" | all_changes[,3]=="Inciden
   scale_color_brewer(palette = "Dark2") + 
   scale_fill_brewer(palette="Dark2")
 ```
-These results indicate that for the SEIRD model with these parameters, a daily
-step size is much too large to obtain accurate results. The daily step size
-causes the date of the peak of the epidemic (for both incident cases and
-deaths) to be overestimated by several days, due to the inaccuracy of the 
-constant derivative assumption introduced by the Euler method.
-
-
+These results indicate that for the `SEIRD` model with these parameters, a step size of one day results in substantial inaccuracy. This step size resulted in a higher peak case load which occurred later than the accurate solution. It also delayed the peak in deaths.
 
 ## Differential equations versus difference equations
-
 The forward Euler recurrence relation defining the approximate solution to a
 _differential_ equation,
 
 $$f_{i+1} = f_i + \Delta t g(t_i, f_i),$$
 
-is identical with a typical definition of a _difference_ equation of the sort 
-used in multiple fields of computational biology, including epidemiology (see
+is identical with a typical definition of a _difference_ equation of the sort used in multiple fields of computational biology, including epidemiology (see
 [@izzo2009general]).
 
-Thus, what we have up till now treated as numerical error arising from the
-forward Euler method may alternatively be viewed as the discrepancy between an
-(accurately solved) differential equation model and a corresponding difference
-equation model. The results above show, for the parameter values considered,
-that this discrepancy is not negligible. While difference equations can be
-valid and tenable models for certain phenomena, we see that a daily SEIRD
-difference equation cannot be considered equivalent to the original SEIRD
-differential equation model, that is, the same parameter values can cause 
-substantially different outputs from each model. Difference equations tend to be a more appropriate modelling framework when considering non-overlapping generations, which is not generally the case in epidemiological modelling.
+Thus, what we have considered as numerical error arising from the forward Euler method may alternatively be viewed as the discrepancy between an (accurately solved) differential equation model and a corresponding difference
+equation model. The results above show that the difference in outputs from each approach can be nontrivial. While difference equations can be reasonable models for certain phenomena, our analysis shows that these models are not straightforward equivalents of differential equations. This is not surprising since differential equations suppose that individuals have a continuous overlap of generations, whereas difference equations suppose that these are non-overlapping [@murray1989mathematical]. As such, it is questionable whether difference equations should be used to model transmission dynamics of a disease such as COVID-19, where an infectious individual may "give birth" to a number of infected individuals who coexist with the infector.
 
 ## Adaptive step size methods
 
@@ -422,9 +386,9 @@ obtained using the LSODA solver. The value of the $I$ compartment is shown over 
 model <- SEIRDV()
 # Select transmission parameters where the effect of the discontinuity can be 
 # observed on a short time scale of 20 days
-params <- list(beta=1, kappa=0.9, gamma=0.5, mu=0.1, nu=0.4, delta_V=0.15, delta_R=0.05)
+params <- list(beta=1, kappa=0.9, gamma=0.5, mu=0.1, nu=0.4, delta_V=0.15, delta_R=0.05, delta_VR = 0.02)
 transmission_parameters(model) <- params
-initial_conditions(model) <- list(S0=0.99, E0=0, I0=0.01, R0=0, V0=0)
+initial_conditions(model) <- list(S0=0.99, E0=0, I0=0.01, R0=0, V0=0, VR0=0)
 intervention_parameters(model) <- list(starts=c(4.75),
                                        stops=c(9.75),
                                        coverages=c(1),
@@ -493,9 +457,9 @@ The value of the $I$ compartment is shown over time, and the time period of vacc
 
 ```{r, fig.width=8, fig.height=5}
 model <- SEIRDV()
-params <- list(beta=1, kappa=0.9, gamma=0.5, mu=0.1, nu=0.4, delta_V=0.15, delta_R=0.05)
+params <- list(beta=1, kappa=0.9, gamma=0.5, mu=0.1, nu=0.4, delta_V=0.15, delta_R=0.05, delta_VR=0.01)
 transmission_parameters(model) <- params
-initial_conditions(model) <- list(S0=0.99, E0=0, I0=0.01, R0=0, V0=0)
+initial_conditions(model) <- list(S0=0.99, E0=0, I0=0.01, R0=0, V0=0, VR0=0)
 intervention_parameters(model) <- list(starts=c(4.75),
                                        stops=c(9.75),
                                        coverages=c(1),
