@@ -48,11 +48,11 @@ In brief, the SEIRD model is a compartmental model that describes the transition
 The population groups are represented with $S$, $E$, $I$, $R$ and $D$ respectively.
 The ordinary differential equations (ODEs) that define the model are
 
-$$\frac{\text{d}S}{\text{d}t} = -\beta S I $$
-$$\frac{\text{d}E}{\text{d}t} = \beta S I -\kappa E$$
-$$\frac{\text{d}I}{\text{d}t} = \kappa E - (\gamma + \mu) I $$
-$$\frac{\text{d}R}{\text{d}t} = \gamma I $$
-$$\frac{\text{d}D}{\text{d}t} = \mu I $$
+$$\frac{\text{d}S}{\text{d}t} = -\beta S I, $$
+$$\frac{\text{d}E}{\text{d}t} = \beta S I -\kappa E, $$
+$$\frac{\text{d}I}{\text{d}t} = \kappa E - (\gamma + \mu) I, $$
+$$\frac{\text{d}R}{\text{d}t} = \gamma I, $$
+$$\frac{\text{d}D}{\text{d}t} = \mu I, $$
 
 where $\beta$, $\kappa$, $\gamma$ and $\mu$ are the infection rate, incubation rate, recovery rate and death rate respectively.
 More details can be found in [the SEIRD vignette](https://como-dtc-collaboration.github.io/como-models/articles/SEIRD.html) from the `comomodels` package.
@@ -99,8 +99,8 @@ ggplot() +
 
 To estimate the parameters, we use maximum likelihood estimation. Here, we assume observed cases ($C_t^*$) and deaths ($D_t^*$) are sampled from Poisson distributions with the true cases ($C_t$) and deaths ($D_t$) as the respective means:
 
-$$ \hat{C}_t \sim \text{Pois}(C_t) $$
-$$ \hat{D}_t \sim \text{Pois}(D_t) $$
+$$ C_t^* \sim \text{Pois}(C_t), $$
+$$ D_t^* \sim \text{Pois}(D_t). $$
 
 Note, that the above implicitly assumes that there is no systematic under-reporting of cases and deaths.
 (Thus $C_t$ and $D_t$ represent the SEIRD model outputs cases and deaths respectively.) Whilst this is unlikely to be true (particularly at the start of the epidemic), we do not include these processes here since it would lead to further identifiability issues of our model.
@@ -110,7 +110,7 @@ Our overall likelihood function is assumed to be the product of the likelihoods 
 $$
 p(\boldsymbol{x}|\beta,\kappa,\gamma,\mu) \propto \left(\prod_{t=1}^T D_t^{D_t^*}\exp(-D_t)\right)\left(\prod_{t=1}^T C_t^{C_t^*}\exp(-C_t)\right),
 $$
-where $D_t$ and $C_t$ are both functions of the transmission parameters. Note that, in the above, we have dropped the constant of proportionality for readability.
+where $C_t$ and $D_t$ are both functions of the transmission parameters. Note that, in the above, we have dropped the constant of proportionality for readability.
 
 The initial conditions are assumed fixed at:
 
@@ -282,8 +282,10 @@ out_df <- run(model, times)
 
 The raw ODE model outputs do not generate the random fluctuations seen in the real data, and we use a Poisson distribution to generate simulated series for cases and deaths. To do so, we assume that the means for cases and deaths are the model outputs for each of these quantities:
 
-$$ C^{*}(t) \sim {\sf Pois}(C(t))$$
-$$ D^{*}(t) \sim {\sf Pois}(D(t)).$$
+$$ C^{*}(t) \sim {\sf Pois}(C(t)),$$
+$$ D^{*}(t) \sim {\sf Pois}(D(t)),$$
+
+where $C(t)$ and $D(t)$ are cases and deaths from the raw ODE model outputs respectively, while $C^*(t)$ and $D^*(t)$ are noisy cases and deaths of the SEIRD model.
 
 ```{r add-noise, eval=!cached_bool}
 # add Poisson noise to synthetic data 
